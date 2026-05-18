@@ -4,8 +4,10 @@ import datetime
 import json
 import gspread
 from google.oauth2.service_account import Credentials
+import os
+import base64
 
-st.set_page_config(page_title="발주서 작성", page_icon="📝", layout="wide")
+st.set_page_config(page_title="발주서 및 거래명세서 작성", page_icon="📝", layout="wide")
 
 # 1. 구글 시트 연결
 @st.cache_resource
@@ -15,26 +17,35 @@ def init_connection():
     creds = Credentials.from_service_account_info(creds_info, scopes=scope)
     return gspread.authorize(creds)
 
-st.title("📝 발주서 작성 (마더데이터 저장 테스트)")
+st.title("📝 발주서 및 거래명세서 작성")
 
-# 2. 기본 정보 입력창 (누락 항목 모두 추가)
+# 2. 기본 정보 입력창
 st.subheader("1. 기본 정보")
 c1, c2, c3, c4 = st.columns(4)
+
 with c1: 
-    f_date = st.date_input("발주일", datetime.date.today())
+    f_close_month = st.date_input("마감월 (시트저장용, 출력X)")
     f_sales_v = st.text_input("매출업체")
-    f_supplier = st.text_input("공급자정보")
-with c2: 
-    f_due_date = st.text_input("납기일(시간포함)", placeholder="예: 5/20 오전 10시")
     f_purch_v = st.text_input("매입업체")
+with c2: 
+    f_date = st.date_input("발주일", datetime.date.today())
+    f_due_date = st.date_input("납기일", datetime.date.today())
+    f_due_time = st.text_input("납기시간", placeholder="예: 오전 10시")
 with c3: 
     f_site = st.text_input("현장명")
-    f_manager = st.text_input("담당(수령인)")
-with c4: 
     f_address = st.text_input("도착지주소")
+with c4: 
+    f_manager = st.text_input("담당(수령인)")
     f_phone = st.text_input("담당전화번호")
 
-# 3. 품목 상세 입력창 (누락 항목 모두 추가)
+# 공급자 정보 (고정)
+SUPPLIER_INFO = {
+    "company": "석미세이프",
+    "biznum": "524-38-00469",
+    "address": "경기도 남양주시 수동면 남가로 1771-1"
+}
+
+# 3. 품목 상세 입력창
 st.subheader("2. 품목 상세")
 if 'order_items' not in st.session_state:
     st.session_state.order_items = pd.DataFrame([
@@ -52,7 +63,6 @@ st.divider()
 
 # 4. 저장 버튼 및 헤더 자동 생성 로직
 if st.button("💾 마더데이터에 저장", type="primary"):
-    # 품목이 비어있지 않은 줄만 필터링
     valid_df = edited_df[edited_df['품목'].astype(str).str.strip() != ""].copy()
     
     if valid_df.empty:
@@ -62,39 +72,132 @@ if st.button("💾 마더데이터에 저장", type="primary"):
             client = init_connection()
             sheet = client.open("석미_마더데이터").sheet1 
             
-            # 구글 시트에 들어갈 전체 헤더(제목) 정의
+            # 구글 시트 헤더 (나중에 이 리스트 순서만 바꾸면 시트 순서도 변경됨)
             expected_headers = [
-                '발주일', '납기일', '매출업체', '매입업체', '현장명', '도착지주소', 
-                '담당(수령인)', '담당전화번호', '공급자정보',
+                '마감월', '발주일', '납기일', '납기시간', '매출업체', '매입업체', '현장명', '도착지주소', 
+                '담당(수령인)', '담당전화번호',
                 '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', 
                 '매입단가', '매출단가'
             ]
             
-            # 시트의 기존 데이터 확인
             existing_data = sheet.get_all_values()
             
-            # 헤더가 없거나 다르면 1행에 헤더를 자동으로 추가
             if not existing_data or existing_data[0] != expected_headers:
                 if not existing_data:
                     sheet.append_row(expected_headers)
                 else:
                     sheet.insert_row(expected_headers, index=1)
             
-            # 데이터 추가 준비
             rows_to_append = []
             for _, row in valid_df.iterrows():
                 rows_to_append.append([
+                    f_close_month.strftime("%Y-%m"), # 마감월은 YYYY-MM 형식
                     f_date.strftime("%Y-%m-%d"), 
-                    f_due_date, f_sales_v, f_purch_v, f_site, f_address, 
-                    f_manager, f_phone, f_supplier,
+                    f_due_date.strftime("%Y-%m-%d"),
+                    f_due_time, f_sales_v, f_purch_v, f_site, f_address, 
+                    f_manager, f_phone,
                     row['품목'], row['규격'], row['수량'], row['단위'], 
                     row['색상'], row['가공'], row['KS'], row['비고'], 
                     row['매입단가'], row['매출단가']
                 ])
                 
-            # 시트에 데이터 저장
             sheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
-            st.success("✅ 구글 시트에 1행 헤더와 함께 성공적으로 저장되었습니다!")
+            st.success("✅ 구글 시트에 성공적으로 저장되었습니다!")
             
         except Exception as e:
             st.error(f"저장 중 오류 발생: {e}")
+
+st.divider()
+
+# 5. PDF 출력 미리보기 (마감월 제외, 고정 공급자 정보 사용)
+st.subheader("3. 거래명세서/발주서 미리보기 및 PDF 다운로드")
+
+tbody_html = ""
+valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
+for i, row in valid_rows.iterrows():
+    tbody_html += f"""
+    <tr>
+        <td style='text-align:center; padding:5px; border:1px solid #000;'>{i+1}</td>
+        <td style='padding:5px; border:1px solid #000;'>{row.get('품목', '')}</td>
+        <td style='padding:5px; border:1px solid #000;'>{row.get('규격', '')}</td>
+        <td style='text-align:center; padding:5px; border:1px solid #000;'>{row.get('수량', '')}</td>
+        <td style='text-align:center; padding:5px; border:1px solid #000;'>{row.get('단위', '')}</td>
+        <td style='padding:5px; border:1px solid #000;'>{row.get('색상', '')} {row.get('가공', '')} {row.get('KS', '')}</td>
+        <td style='padding:5px; border:1px solid #000;'>{row.get('비고', '')}</td>
+    </tr>
+    """
+
+html_template = f"""
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<div style="text-align: right; max-width: 840px; margin: 0 auto 10px auto;">
+    <button onclick="downloadPDF()" style="padding: 10px 20px; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">
+        📥 PDF 다운로드
+    </button>
+</div>
+
+<div id="capture-area" style="max-width: 820px; margin: 0 auto; padding: 20px; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
+    <h1 style="text-align: center; letter-spacing: 10px; border-bottom: 2px solid #000; padding-bottom: 10px;">거 래 명 세 서</h1>
+    
+    <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 14px;">
+        <div style="width: 48%;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="padding: 5px; width: 80px; font-weight: bold;">매출업체</td><td>: {f_sales_v}</td></tr>
+                <tr><td style="padding: 5px; font-weight: bold;">현장명</td><td>: {f_site}</td></tr>
+                <tr><td style="padding: 5px; font-weight: bold;">도착지주소</td><td>: {f_address}</td></tr>
+                <tr><td style="padding: 5px; font-weight: bold;">수령인/연락처</td><td>: {f_manager} / {f_phone}</td></tr>
+                <tr><td style="padding: 5px; font-weight: bold;">납기일시</td><td>: {f_due_date.strftime('%Y-%m-%d')} {f_due_time}</td></tr>
+            </table>
+        </div>
+        
+        <div style="width: 48%;">
+            <table style="width: 100%; border-collapse: collapse; border: 2px solid #000;">
+                <tr>
+                    <td rowspan="3" style="width: 25px; text-align: center; border-right: 1px solid #000; font-weight: bold;">공<br>급<br>자</td>
+                    <td style="padding: 5px; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 70px;">등록번호</td>
+                    <td style="padding: 5px; border-bottom: 1px solid #000;">{SUPPLIER_INFO['biznum']}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px; border-right: 1px solid #000; border-bottom: 1px solid #000;">상호</td>
+                    <td style="padding: 5px; border-bottom: 1px solid #000; font-weight: bold;">{SUPPLIER_INFO['company']}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 5px; border-right: 1px solid #000;">주소</td>
+                    <td style="padding: 5px;">{SUPPLIER_INFO['address']}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 13px; text-align: center;">
+            <tr style="background-color: #f0f0f0;">
+                <th style="padding: 8px; border: 1px solid #000; width: 50px;">No</th>
+                <th style="padding: 8px; border: 1px solid #000;">품목</th>
+                <th style="padding: 8px; border: 1px solid #000;">규격</th>
+                <th style="padding: 8px; border: 1px solid #000; width: 60px;">수량</th>
+                <th style="padding: 8px; border: 1px solid #000; width: 60px;">단위</th>
+                <th style="padding: 8px; border: 1px solid #000;">상세(색상/가공/KS)</th>
+                <th style="padding: 8px; border: 1px solid #000;">비고</th>
+            </tr>
+            {tbody_html}
+        </table>
+    </div>
+</div>
+
+<script>
+    function downloadPDF() {{
+        var element = document.getElementById('capture-area');
+        var opt = {{
+            margin:       10,
+            filename:     '거래명세서_{f_sales_v}.pdf',
+            image:        {{ type: 'jpeg', quality: 0.98 }},
+            html2canvas:  {{ scale: 2 }},
+            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'portrait' }}
+        }};
+        html2pdf().set(opt).from(element).save();
+    }}
+</script>
+"""
+
+st.components.v1.html(html_template, height=800, scrolling=True)
