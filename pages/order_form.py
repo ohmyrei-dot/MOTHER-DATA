@@ -25,18 +25,18 @@ c1, c2, c3, c4 = st.columns(4)
 
 with c1: 
     f_close_month = st.date_input("마감월 (시트저장용, 출력X)")
-    f_sales_v = st.text_input("매출업체")
-    f_purch_v = st.text_input("매입업체")
+    f_sales_v = st.text_input("납품처")
+    f_address = st.text_input("도착지주소")
 with c2: 
     f_date = st.date_input("발주일", datetime.date.today())
-    f_due_date = st.date_input("납기일", datetime.date.today())
-    f_due_time = st.text_input("납기시간", placeholder="예: 오전 10시")
-with c3: 
     f_site = st.text_input("현장명")
-    f_address = st.text_input("도착지주소")
-with c4: 
+    f_purch_v = st.text_input("매입업체")
+with c3: 
+    f_due_date = st.date_input("납기일", datetime.date.today())
     f_manager = st.text_input("담당(수령인)")
-    f_phone = st.text_input("담당전화번호")
+with c4: 
+    f_due_time = st.text_input("납기시간", placeholder="예: 오전 10시")
+    f_phone = st.text_input("수령인전화")
 
 # 공급자 정보 (고정)
 SUPPLIER_INFO = {
@@ -74,8 +74,8 @@ if st.button("💾 마더데이터에 저장", type="primary"):
             
             # 구글 시트 헤더 (나중에 이 리스트 순서만 바꾸면 시트 순서도 변경됨)
             expected_headers = [
-                '마감월', '발주일', '납기일', '납기시간', '매출업체', '매입업체', '현장명', '도착지주소', 
-                '담당(수령인)', '담당전화번호',
+                '마감월', '발주일', '납기일', '납기시간', '납품처', '현장명', '담당(수령인)', '수령인전화',
+                '도착지주소', '매입업체',
                 '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', 
                 '매입단가', '매출단가'
             ]
@@ -94,8 +94,8 @@ if st.button("💾 마더데이터에 저장", type="primary"):
                     f_close_month.strftime("%Y-%m"), # 마감월은 YYYY-MM 형식
                     f_date.strftime("%Y-%m-%d"), 
                     f_due_date.strftime("%Y-%m-%d"),
-                    f_due_time, f_sales_v, f_purch_v, f_site, f_address, 
-                    f_manager, f_phone,
+                    f_due_time, f_sales_v, f_site, f_manager, f_phone, 
+                    f_address, f_purch_v,
                     row['품목'], row['규격'], row['수량'], row['단위'], 
                     row['색상'], row['가공'], row['KS'], row['비고'], 
                     row['매입단가'], row['매출단가']
@@ -142,7 +142,7 @@ html_template = f"""
     <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 14px;">
         <div style="width: 48%;">
             <table style="width: 100%; border-collapse: collapse;">
-                <tr><td style="padding: 5px; width: 80px; font-weight: bold;">매출업체</td><td>: {f_sales_v}</td></tr>
+                <tr><td style="padding: 5px; width: 80px; font-weight: bold;">납품처</td><td>: {f_sales_v}</td></tr>
                 <tr><td style="padding: 5px; font-weight: bold;">현장명</td><td>: {f_site}</td></tr>
                 <tr><td style="padding: 5px; font-weight: bold;">도착지주소</td><td>: {f_address}</td></tr>
                 <tr><td style="padding: 5px; font-weight: bold;">수령인/연락처</td><td>: {f_manager} / {f_phone}</td></tr>
