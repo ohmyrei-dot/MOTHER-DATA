@@ -23,12 +23,12 @@ st.title("📝 발주서 및 거래명세서 작성")
 st.subheader("1. 기본 정보")
 c1, c2, c3, c4 = st.columns(4)
 
-# 마감월 선택용 리스트 (현재 월 기준 -2개월 ~ +9개월)
+# 마감월 선택용 리스트 (과거 1년 ~ 미래 5년)
 today = datetime.date.today()
-month_list = [(pd.to_datetime(today) + pd.DateOffset(months=i)).strftime("%Y-%m") for i in range(-2, 10)]
+month_list = [(pd.to_datetime(today) + pd.DateOffset(months=i)).strftime("%Y-%m") for i in range(-12, 61)]
 
 with c1: 
-    f_close_month = st.selectbox("마감월 (시트저장용)", month_list, index=2)
+    f_close_month = st.selectbox("마감월 (시트저장용)", month_list, index=12)
     f_sales_v = st.text_input("납품처")
     f_address = st.text_input("도착지주소")
 with c2: 
@@ -36,9 +36,8 @@ with c2:
     f_site = st.text_input("현장명")
     f_purch_v = st.text_input("매입업체")
 with c3: 
-    cc1, cc2 = st.columns(2)
-    with cc1: f_due_date = st.date_input("납기일", today)
-    with cc2: f_due_time = st.text_input("납기시간", placeholder="오전 10시")
+    f_due_date = st.date_input("납기일", today)
+    f_due_time = st.time_input("납기시간", datetime.time(10, 0))
     f_manager = st.text_input("담당(수령인)")
 with c4: 
     st.markdown("<div style='margin-top: 73px;'></div>", unsafe_allow_html=True) # 줄맞춤용 공백
@@ -95,12 +94,13 @@ if st.button("💾 마더데이터에 저장", type="primary"):
                     sheet.insert_row(expected_headers, index=1)
             
             rows_to_append = []
+            f_due_time_str = f_due_time.strftime("%p %I:%M").replace("AM", "오전").replace("PM", "오후")
             for _, row in valid_df.iterrows():
                 rows_to_append.append([
                     f_close_month, # 마감월 (문자열 그대로 저장)
                     f_date.strftime("%Y-%m-%d"), 
                     f_due_date.strftime("%Y-%m-%d"),
-                    f_due_time, f_sales_v, f_site, f_manager, f_phone, 
+                    f_due_time_str, f_sales_v, f_site, f_manager, f_phone, 
                     f_address, f_purch_v,
                     row['품목'], row['규격'], row['수량'], row['단위'], 
                     row['색상'], row['가공'], row['KS'], row['비고'], 
@@ -152,7 +152,7 @@ html_template = f"""
                 <tr><td style="padding: 5px; font-weight: bold;">현장명</td><td>: {f_site}</td></tr>
                 <tr><td style="padding: 5px; font-weight: bold;">도착지주소</td><td>: {f_address}</td></tr>
                 <tr><td style="padding: 5px; font-weight: bold;">수령인/연락처</td><td>: {f_manager} / {f_phone}</td></tr>
-                <tr><td style="padding: 5px; font-weight: bold;">납기일시</td><td>: {f_due_date.strftime('%Y-%m-%d')} {f_due_time}</td></tr>
+                <tr><td style="padding: 5px; font-weight: bold;">납기일시</td><td>: {f_due_date.strftime('%Y-%m-%d')} {f_due_time_str}</td></tr>
             </table>
         </div>
         
