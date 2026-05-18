@@ -19,10 +19,9 @@ def init_connection():
 
 st.title("📝 발주서 및 거래명세서 작성")
 
-# 2. 기본 정보 입력창 (레이아웃 개선)
+# 2. 기본 정보 입력창
 st.subheader("1. 기본 정보")
 
-# 마감월 선택용 리스트 (과거 1년 ~ 미래 5년)
 today = datetime.date.today()
 month_list = [(pd.to_datetime(today) + pd.DateOffset(months=i)).strftime("%Y-%m") for i in range(-12, 61)]
 
@@ -40,7 +39,7 @@ with r2c2: f_site = st.text_input("현장명")
 with r2c3: f_manager = st.text_input("담당(수령인)")
 with r2c4: f_phone = st.text_input("수령인전화")
 
-# 3번째 줄 (도착지 주소 길게)
+# 3번째 줄
 r3c1, r3c2 = st.columns([1, 3])
 with r3c1: f_purch_v = st.text_input("매입업체")
 with r3c2: f_address = st.text_input("도착지주소 (상세 입력)")
@@ -69,10 +68,9 @@ edited_df = st.data_editor(
 st.divider()
 
 # 4. 저장 및 PDF 발행 통합 로직
-st.subheader("3. 거래명세서 미리보기 및 발행")
-st.info("💡 아래 버튼을 누르면 구글 시트에 자동 저장된 후 PDF 파일이 다운로드됩니다.")
+st.subheader("3. 장부 저장 및 PDF 통합 발행")
+st.info("💡 아래 버튼을 누르면 구글 시트에 자동 저장된 후, 거래명세서(양면)와 발주서(단면)가 포함된 PDF가 다운로드됩니다.")
 
-# 저장 상태 플래그
 if 'is_saved' not in st.session_state:
     st.session_state.is_saved = False
 
@@ -96,7 +94,6 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                 ]
                 
                 existing_data = sheet.get_all_values()
-                
                 if not existing_data or existing_data[0] != expected_headers:
                     if not existing_data:
                         sheet.append_row(expected_headers)
@@ -124,7 +121,7 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
             st.error(f"저장 중 오류 발생: {e}")
             st.session_state.is_saved = False
 
-# 5. PDF 출력 미리보기
+# 5. PDF 출력 미리보기 (동일 규격 블록 생성)
 tbody_html = ""
 valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
 for i, row in valid_rows.iterrows():
@@ -140,79 +137,113 @@ for i, row in valid_rows.iterrows():
     </tr>
     """
 
-# 자동 다운로드 자바스크립트 처리
-auto_download_js = ""
-if st.session_state.is_saved:
-    auto_download_js = """
-    window.onload = function() {
-        setTimeout(function() {
-            downloadPDF();
-        }, 500);
-    };
-    """
-    st.session_state.is_saved = False # 플래그 초기화
-
-html_template = f"""
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
-<div id="capture-area" style="max-width: 820px; margin: 0 auto; padding: 20px; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
-    <h1 style="text-align: center; letter-spacing: 10px; border-bottom: 2px solid #000; padding-bottom: 10px;">거 래 명 세 서</h1>
-    
-    <div style="display: flex; justify-content: space-between; margin-top: 20px; font-size: 14px;">
-        <div style="width: 48%;">
-            <table style="width: 100%; border-collapse: collapse;">
-                <tr><td style="padding: 5px; width: 80px; font-weight: bold;">납품처</td><td>: {f_sales_v}</td></tr>
-                <tr><td style="padding: 5px; font-weight: bold;">현장명</td><td>: {f_site}</td></tr>
-                <tr><td style="padding: 5px; font-weight: bold;">도착지주소</td><td>: {f_address}</td></tr>
-                <tr><td style="padding: 5px; font-weight: bold;">수령인/연락처</td><td>: {f_manager} / {f_phone}</td></tr>
-                <tr><td style="padding: 5px; font-weight: bold;">납기일시</td><td>: {f_due_date.strftime('%Y-%m-%d')} {f_due_time}</td></tr>
-            </table>
+# 거래명세서/발주서 공통 템플릿 생성기 (단가 제외)
+def create_doc_block(title, receiver_label, receiver_name):
+    return f"""
+    <div style="width: 48%; padding: 15px; border: 1px dashed #bbb; box-sizing: border-box;">
+        <h1 style="text-align: center; letter-spacing: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; font-size: 24px; margin-bottom: 20px;">{title}</h1>
+        
+        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
+            <div style="width: 53%;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                    <tr><td style="padding: 4px; width: 85px; font-weight: bold; border-bottom: 1px solid #ccc;">{receiver_label}</td>
+                        <td style="padding: 4px; border-bottom: 1px solid #ccc; font-weight: bold; font-size: 15px;">{receiver_name} 귀하</td></tr>
+                    <tr><td style="padding: 4px; font-weight: bold; border-bottom: 1px solid #ccc;">현장명</td>
+                        <td style="padding: 4px; border-bottom: 1px solid #ccc;">{f_site}</td></tr>
+                    <tr><td style="padding: 4px; font-weight: bold; border-bottom: 1px solid #ccc;">도착지주소</td>
+                        <td style="padding: 4px; border-bottom: 1px solid #ccc;">{f_address}</td></tr>
+                    <tr><td style="padding: 4px; font-weight: bold; border-bottom: 1px solid #ccc;">수령인/연락처</td>
+                        <td style="padding: 4px; border-bottom: 1px solid #ccc;">{f_manager} / {f_phone}</td></tr>
+                    <tr><td style="padding: 4px; font-weight: bold; border-bottom: 1px solid #ccc;">납기일시</td>
+                        <td style="padding: 4px; border-bottom: 1px solid #ccc; font-weight: bold; color: #d32f2f;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</td></tr>
+                </table>
+            </div>
+            
+            <div style="width: 44%;">
+                <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; text-align: left;">
+                    <tr>
+                        <td rowspan="3" style="width: 25px; text-align: center; border-right: 1px solid #000; font-weight: bold; padding: 0;">공<br>급<br>자</td>
+                        <td style="padding: 4px; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 65px;">등록번호</td>
+                        <td style="padding: 4px; border-bottom: 1px solid #000;">{SUPPLIER_INFO['biznum']}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px; border-right: 1px solid #000; border-bottom: 1px solid #000;">상호</td>
+                        <td style="padding: 4px; border-bottom: 1px solid #000; font-weight: bold;">{SUPPLIER_INFO['company']}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 4px; border-right: 1px solid #000;">주소</td>
+                        <td style="padding: 4px; font-size: 11px; word-break: keep-all;">{SUPPLIER_INFO['address']}</td>
+                    </tr>
+                </table>
+            </div>
         </div>
         
-        <div style="width: 48%;">
-            <table style="width: 100%; border-collapse: collapse; border: 2px solid #000;">
-                <tr>
-                    <td rowspan="3" style="width: 25px; text-align: center; border-right: 1px solid #000; font-weight: bold;">공<br>급<br>자</td>
-                    <td style="padding: 5px; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 70px;">등록번호</td>
-                    <td style="padding: 5px; border-bottom: 1px solid #000;">{SUPPLIER_INFO['biznum']}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 5px; border-right: 1px solid #000; border-bottom: 1px solid #000;">상호</td>
-                    <td style="padding: 5px; border-bottom: 1px solid #000; font-weight: bold;">{SUPPLIER_INFO['company']}</td>
-                </tr>
-                <tr>
-                    <td style="padding: 5px; border-right: 1px solid #000;">주소</td>
-                    <td style="padding: 5px;">{SUPPLIER_INFO['address']}</td>
-                </tr>
-            </table>
-        </div>
-    </div>
-    
-    <div style="margin-top: 20px;">
-        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 13px; text-align: center;">
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 12px; text-align: center;">
             <tr style="background-color: #f0f0f0;">
-                <th style="padding: 8px; border: 1px solid #000; width: 50px;">No</th>
-                <th style="padding: 8px; border: 1px solid #000;">품목</th>
-                <th style="padding: 8px; border: 1px solid #000;">규격</th>
-                <th style="padding: 8px; border: 1px solid #000; width: 60px;">수량</th>
-                <th style="padding: 8px; border: 1px solid #000; width: 60px;">단위</th>
-                <th style="padding: 8px; border: 1px solid #000;">상세(색상/가공/KS)</th>
-                <th style="padding: 8px; border: 1px solid #000;">비고</th>
+                <th style="padding: 6px; border: 1px solid #000; width: 35px;">No</th>
+                <th style="padding: 6px; border: 1px solid #000;">품목</th>
+                <th style="padding: 6px; border: 1px solid #000;">규격</th>
+                <th style="padding: 6px; border: 1px solid #000; width: 40px;">수량</th>
+                <th style="padding: 6px; border: 1px solid #000; width: 40px;">단위</th>
+                <th style="padding: 6px; border: 1px solid #000;">상세(색상/가공/KS)</th>
+                <th style="padding: 6px; border: 1px solid #000;">비고</th>
             </tr>
             {tbody_html}
         </table>
     </div>
+    """
+
+# 블록 생성
+ts_block = create_doc_block("거 래 명 세 서", "납품처", f_sales_v)
+po_block = create_doc_block("발 주 서", "발주처", f_purch_v)
+
+auto_download_js = ""
+if st.session_state.is_saved:
+    auto_download_js = """
+    window.onload = function() {
+        setTimeout(function() { downloadPDF(); }, 500);
+    };
+    """
+    st.session_state.is_saved = False
+
+html_template = f"""
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<div style="text-align: right; max-width: 1050px; margin: 0 auto 10px auto;">
+    <button onclick="downloadPDF()" style="padding: 10px 20px; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">
+        📥 PDF 즉시 수동 다운로드 (A4 가로)
+    </button>
+</div>
+
+<!-- PDF 캡처 전체 영역 -->
+<div id="capture-area" style="max-width: 1050px; margin: 0 auto; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
+    
+    <!-- 1페이지: 거래명세서 (좌/우 쌍둥이 양면) -->
+    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box;">
+        {ts_block}
+        {ts_block}
+    </div>
+    
+    <!-- 강제 페이지 넘김 -->
+    <div class="html2pdf__page-break"></div>
+    
+    <!-- 2페이지: 발주서 (좌측 1면만 사용, 우측 공백) -->
+    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box;">
+        {po_block}
+        <div style="width: 48%;"></div> <!-- 빈 공간 유지용 -->
+    </div>
+
 </div>
 
 <script>
     function downloadPDF() {{
         var element = document.getElementById('capture-area');
         var opt = {{
-            margin:       10,
-            filename:     '거래명세서_{f_sales_v}.pdf',
+            margin:       0,
+            filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 0.98 }},
             html2canvas:  {{ scale: 2 }},
-            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'portrait' }}
+            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }} // A4 가로 방향으로 렌더링
         }};
         html2pdf().set(opt).from(element).save();
     }}
@@ -221,4 +252,4 @@ html_template = f"""
 </script>
 """
 
-st.components.v1.html(html_template, height=800, scrolling=True)
+st.components.v1.html(html_template, height=1200, scrolling=True)
