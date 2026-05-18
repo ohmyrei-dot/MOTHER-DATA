@@ -44,14 +44,35 @@ r3c1, r3c2 = st.columns([1, 3])
 with r3c1: f_purch_v = st.text_input("매입업체")
 with r3c2: f_address = st.text_input("도착지주소 (상세 입력)")
 
-# 3. 운송 정보 입력창 (하단 출력용)
-st.subheader("2. 운송 정보 (출력용)")
-r4c1, r4c2, r4c3, r4c4, r4c5 = st.columns(5)
-with r4c1: f_ship_cost = st.text_input("운임(결제방식)", placeholder="예: 착불 5만원")
-with r4c2: f_ship_comp = st.text_input("운송사(화물)")
-with r4c3: f_ship_car = st.text_input("차량번호")
-with r4c4: f_ship_driver = st.text_input("기사명")
-with r4c5: f_ship_phone = st.text_input("기사연락처")
+# 3. 품목 상세 입력창
+st.subheader("2. 품목 상세")
+if 'order_items' not in st.session_state:
+    st.session_state.order_items = pd.DataFrame([
+        {"품목": "", "규격": "", "수량": 1, "단위": "롤", "색상": "", "가공": "", "KS": "", "비고": "", "매입단가": 0, "매출단가": 0}
+    ])
+
+edited_df = st.data_editor(
+    st.session_state.order_items,
+    num_rows="dynamic",
+    use_container_width=True,
+    hide_index=True
+)
+
+st.divider()
+
+# 4. 운송 정보 입력창 (하단 출력용)
+st.subheader("3. 운송 정보 (미입력 시 빈칸으로 자동 출력됨)")
+r4c1, r4c2, r4c3, r4c4 = st.columns(4)
+with r4c1: f_ship_cost = st.text_input("운임")
+with r4c2: f_ship_car = st.text_input("차량번호")
+with r4c3: f_ship_driver = st.text_input("기사명")
+with r4c4: f_ship_phone = st.text_input("기사연락처")
+
+r5c1, r5c2, r5c3, r5c4 = st.columns(4)
+with r5c1: f_depot = st.text_input("출고지")
+with r5c2: f_sender = st.text_input("출고자")
+with r5c3: f_sender_phone = st.text_input("출고자 전화")
+with r5c4: f_receiver = st.text_input("인수자")
 
 # 공급자 정보 (고정)
 SUPPLIER_INFO = {
@@ -100,7 +121,7 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                     '도착지주소', '매입업체',
                     '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', 
                     '매입단가', '매출단가',
-                    '운임', '운송사', '차량번호', '기사명', '기사연락처'
+                    '운임', '차량번호', '기사명', '기사연락처', '출고지', '출고자', '출고자전화', '인수자'
                 ]
                 
                 existing_data = sheet.get_all_values()
@@ -121,7 +142,8 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                         row['품목'], row['규격'], row['수량'], row['단위'], 
                         row['색상'], row['가공'], row['KS'], row['비고'], 
                         row['매입단가'], row['매출단가'],
-                        f_ship_cost, f_ship_comp, f_ship_car, f_ship_driver, f_ship_phone
+                        f_ship_cost, f_ship_car, f_ship_driver, f_ship_phone,
+                        f_depot, f_sender, f_sender_phone, f_receiver
                     ])
                     
                 sheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
@@ -150,6 +172,10 @@ for i, row in valid_rows.iterrows():
 
 # 거래명세서/발주서 공통 템플릿 생성기
 def create_doc_block(title, receiver_label, receiver_name):
+    
+    # 운임란 빈칸 처리 (입력 없으면 띄어쓰기로 공간 확보)
+    display_cost = f"₩ {f_ship_cost} 원" if f_ship_cost.strip() else "₩ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 원"
+    
     return f"""
     <div style="width: 48%; padding: 10px; box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif;">
         <div style="position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
@@ -162,7 +188,7 @@ def create_doc_block(title, receiver_label, receiver_name):
             <div style="width: 46%;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 12px;">
                     <tr>
-                        <td style="width: 55px; font-weight: bold;">납기일</td>
+                        <td style="width: 70px; font-weight: bold;">납기일</td>
                         <td>: <span style="color: #d32f2f; font-weight: bold;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</span></td>
                     </tr>
                     <tr>
@@ -182,7 +208,7 @@ def create_doc_block(title, receiver_label, receiver_name):
                         <td>: {f_phone}</td>
                     </tr>
                     <tr>
-                        <td style="font-weight: bold; vertical-align: top;">도착지주소</td>
+                        <td style="font-weight: bold; vertical-align: top; white-space: nowrap;">도착지주소</td>
                         <td style="word-break: keep-all;">: {f_address}</td>
                     </tr>
                 </table>
@@ -225,14 +251,30 @@ def create_doc_block(title, receiver_label, receiver_name):
             {tbody_html}
         </table>
         
-        <!-- 하단 운송 정보 추가 -->
-        <div style="margin-top: 15px; border: 1px solid #000; padding: 6px 10px; display: flex; justify-content: space-between; font-size: 11px; background-color: #fafafa;">
-            <div><b>운임:</b> {f_ship_cost}</div>
-            <div><b>운송사:</b> {f_ship_comp}</div>
-            <div><b>차량번호:</b> {f_ship_car}</div>
-            <div><b>기사명:</b> {f_ship_driver}</div>
-            <div><b>기사연락처:</b> {f_ship_phone}</div>
-        </div>
+        <!-- 하단 운송 정보 표 -->
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 10.5px; text-align: center; margin-top: 10px;">
+            <tr>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 13%;">운 임 ( 후불 )</td>
+                <td style="border: 1px solid #000; padding: 4px 2px; width: 13%;">{display_cost}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 9%;">차량번호</td>
+                <td style="border: 1px solid #000; padding: 4px 2px; width: 11%;">{f_ship_car}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 8%;">기사명</td>
+                <td style="border: 1px solid #000; padding: 4px 2px; width: 10%;">{f_ship_driver}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 8%;">전 화</td>
+                <td style="border: 1px solid #000; padding: 4px 2px; width: 11%;">{f_ship_phone}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 8%;">인수자</td>
+                <td style="border: 1px solid #000; padding: 4px 2px; width: 9%;">{f_receiver}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px;">출고지</td>
+                <td style="border: 1px solid #000; padding: 4px 2px;">{f_depot}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px;">출고자</td>
+                <td style="border: 1px solid #000; padding: 4px 2px;">{f_sender}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px;">전 화</td>
+                <td style="border: 1px solid #000; padding: 4px 2px;">{f_sender_phone}</td>
+                <td colspan="4" style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; letter-spacing: 0.5px; font-size: 11px;">FAX : 02-495-4856 &nbsp;&nbsp;&nbsp; Mobile 010-8645-4854</td>
+            </tr>
+        </table>
     </div>
     """
 
