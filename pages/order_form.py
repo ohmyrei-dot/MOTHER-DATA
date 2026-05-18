@@ -137,56 +137,64 @@ for i, row in valid_rows.iterrows():
     </tr>
     """
 
-# 거래명세서/발주서 공통 템플릿 생성기 (단가 제외)
+# 거래명세서/발주서 공통 템플릿 생성기 (엑셀 양식 완벽 반영)
 def create_doc_block(title, receiver_label, receiver_name):
     return f"""
-    <div style="width: 48%; padding: 15px; border: 1px dashed #bbb; box-sizing: border-box;">
-        <h1 style="text-align: center; letter-spacing: 15px; border-bottom: 2px solid #000; padding-bottom: 10px; font-size: 24px; margin-bottom: 20px;">{title}</h1>
+    <div style="width: 48%; padding: 10px; box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif;">
+        <div style="position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+            <h1 style="text-align: center; letter-spacing: 15px; font-size: 22px; margin: 0;">{title}</h1>
+            <div style="position: absolute; right: 0; bottom: 5px; font-size: 12px; font-weight: bold;">{f_date.strftime('%Y - %m - %d')}</div>
+        </div>
         
-        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 13px;">
-            <div style="width: 53%;">
-                <table style="width: 100%; border-collapse: collapse; text-align: left;">
-                    <tr><td style="padding: 4px; width: 85px; font-weight: bold; border-bottom: 1px solid #ccc;">{receiver_label}</td>
-                        <td style="padding: 4px; border-bottom: 1px solid #ccc; font-weight: bold; font-size: 15px;">{receiver_name} 귀하</td></tr>
-                    <tr><td style="padding: 4px; font-weight: bold; border-bottom: 1px solid #ccc;">현장명</td>
-                        <td style="padding: 4px; border-bottom: 1px solid #ccc;">{f_site}</td></tr>
-                    <tr><td style="padding: 4px; font-weight: bold; border-bottom: 1px solid #ccc;">도착지주소</td>
-                        <td style="padding: 4px; border-bottom: 1px solid #ccc;">{f_address}</td></tr>
-                    <tr><td style="padding: 4px; font-weight: bold; border-bottom: 1px solid #ccc;">수령인/연락처</td>
-                        <td style="padding: 4px; border-bottom: 1px solid #ccc;">{f_manager} / {f_phone}</td></tr>
-                    <tr><td style="padding: 4px; font-weight: bold; border-bottom: 1px solid #ccc;">납기일시</td>
-                        <td style="padding: 4px; border-bottom: 1px solid #ccc; font-weight: bold; color: #d32f2f;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</td></tr>
-                </table>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px;">
+            <!-- 좌측: 수신처 정보 -->
+            <div style="width: 46%; display: flex; flex-direction: column;">
+                <div style="text-align: right; margin-bottom: 5px; color: #d32f2f; font-weight: bold;">납기일시: {f_due_date.strftime('%Y-%m-%d')} {f_due_time}</div>
+                <div style="font-size: 15px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 8px;">
+                    {receiver_name} <span style="font-size: 12px; font-weight: normal;">귀하</span>
+                </div>
+                <div style="line-height: 1.6;">
+                    <div><b>현장 :</b> {f_site}</div>
+                    <div><b>담당 :</b> {f_manager}</div>
+                    <div><b>H.P :</b> {f_phone}</div>
+                    <div style="word-break: keep-all;"><b>도착지 :</b> {f_address}</div>
+                </div>
+                <div style="margin-top: 8px;">아래와 같이 계산(납품)합니다.</div>
             </div>
             
-            <div style="width: 44%;">
-                <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; text-align: left;">
+            <!-- 우측: 공급자 정보 (칸 벗어남 방지) -->
+            <div style="width: 52%;">
+                <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; text-align: left; font-size: 11px;">
                     <tr>
-                        <td rowspan="3" style="width: 25px; text-align: center; border-right: 1px solid #000; font-weight: bold; padding: 0;">공<br>급<br>자</td>
-                        <td style="padding: 4px; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 65px;">등록번호</td>
-                        <td style="padding: 4px; border-bottom: 1px solid #000;">{SUPPLIER_INFO['biznum']}</td>
+                        <td rowspan="4" style="width: 18px; text-align: center; border-right: 1px solid #000; font-weight: bold; padding: 2px;">공<br>급<br>자</td>
+                        <td style="padding: 3px 5px; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 55px; white-space: nowrap;">등록번호</td>
+                        <td style="padding: 3px 5px; border-bottom: 1px solid #000; white-space: nowrap; font-weight: bold;">{SUPPLIER_INFO['biznum']}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 4px; border-right: 1px solid #000; border-bottom: 1px solid #000;">상호</td>
-                        <td style="padding: 4px; border-bottom: 1px solid #000; font-weight: bold;">{SUPPLIER_INFO['company']}</td>
+                        <td style="padding: 3px 5px; border-right: 1px solid #000; border-bottom: 1px solid #000; white-space: nowrap;">상호</td>
+                        <td style="padding: 3px 5px; border-bottom: 1px solid #000; font-weight: bold;">{SUPPLIER_INFO['company']}</td>
                     </tr>
                     <tr>
-                        <td style="padding: 4px; border-right: 1px solid #000;">주소</td>
-                        <td style="padding: 4px; font-size: 11px; word-break: keep-all;">{SUPPLIER_INFO['address']}</td>
+                        <td style="padding: 3px 5px; border-right: 1px solid #000; border-bottom: 1px solid #000; white-space: nowrap;">주소</td>
+                        <td style="padding: 3px 5px; border-bottom: 1px solid #000; word-break: keep-all; line-height: 1.3;">{SUPPLIER_INFO['address']}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 3px 5px; border-right: 1px solid #000; white-space: nowrap;">업태/종목</td>
+                        <td style="padding: 3px 5px; word-break: keep-all;">제조,도소매 / 안전용품</td>
                     </tr>
                 </table>
             </div>
         </div>
         
-        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 12px; text-align: center;">
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; text-align: center;">
             <tr style="background-color: #f0f0f0;">
-                <th style="padding: 6px; border: 1px solid #000; width: 35px;">No</th>
-                <th style="padding: 6px; border: 1px solid #000;">품목</th>
-                <th style="padding: 6px; border: 1px solid #000;">규격</th>
-                <th style="padding: 6px; border: 1px solid #000; width: 40px;">수량</th>
-                <th style="padding: 6px; border: 1px solid #000; width: 40px;">단위</th>
-                <th style="padding: 6px; border: 1px solid #000;">상세(색상/가공/KS)</th>
-                <th style="padding: 6px; border: 1px solid #000;">비고</th>
+                <th style="padding: 6px 4px; border: 1px solid #000; width: 30px;">No</th>
+                <th style="padding: 6px 4px; border: 1px solid #000;">품목</th>
+                <th style="padding: 6px 4px; border: 1px solid #000;">규격</th>
+                <th style="padding: 6px 4px; border: 1px solid #000; width: 35px;">수량</th>
+                <th style="padding: 6px 4px; border: 1px solid #000; width: 35px;">단위</th>
+                <th style="padding: 6px 4px; border: 1px solid #000;">상세(색상/가공/KS)</th>
+                <th style="padding: 6px 4px; border: 1px solid #000;">비고</th>
             </tr>
             {tbody_html}
         </table>
