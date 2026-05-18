@@ -44,6 +44,15 @@ r3c1, r3c2 = st.columns([1, 3])
 with r3c1: f_purch_v = st.text_input("매입업체")
 with r3c2: f_address = st.text_input("도착지주소 (상세 입력)")
 
+# 3. 운송 정보 입력창 (하단 출력용)
+st.subheader("2. 운송 정보 (출력용)")
+r4c1, r4c2, r4c3, r4c4, r4c5 = st.columns(5)
+with r4c1: f_ship_cost = st.text_input("운임(결제방식)", placeholder="예: 착불 5만원")
+with r4c2: f_ship_comp = st.text_input("운송사(화물)")
+with r4c3: f_ship_car = st.text_input("차량번호")
+with r4c4: f_ship_driver = st.text_input("기사명")
+with r4c5: f_ship_phone = st.text_input("기사연락처")
+
 # 공급자 정보 (고정)
 SUPPLIER_INFO = {
     "company": "석미세이프",
@@ -51,8 +60,8 @@ SUPPLIER_INFO = {
     "address": "경기도 남양주시 수동면 남가로 1771-1"
 }
 
-# 3. 품목 상세 입력창
-st.subheader("2. 품목 상세")
+# 4. 품목 상세 입력창
+st.subheader("3. 품목 상세")
 if 'order_items' not in st.session_state:
     st.session_state.order_items = pd.DataFrame([
         {"품목": "", "규격": "", "수량": 1, "단위": "롤", "색상": "", "가공": "", "KS": "", "비고": "", "매입단가": 0, "매출단가": 0}
@@ -67,8 +76,8 @@ edited_df = st.data_editor(
 
 st.divider()
 
-# 4. 저장 및 PDF 발행 통합 로직
-st.subheader("3. 장부 저장 및 PDF 통합 발행")
+# 5. 저장 및 PDF 발행 통합 로직
+st.subheader("4. 장부 저장 및 PDF 통합 발행")
 st.info("💡 아래 버튼을 누르면 구글 시트에 자동 저장된 후, 거래명세서(양면)와 발주서(단면)가 포함된 PDF가 다운로드됩니다.")
 
 if 'is_saved' not in st.session_state:
@@ -90,7 +99,8 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                     '마감월', '발주일', '납기일', '납기시간', '납품처', '현장명', '담당(수령인)', '수령인전화',
                     '도착지주소', '매입업체',
                     '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', 
-                    '매입단가', '매출단가'
+                    '매입단가', '매출단가',
+                    '운임', '운송사', '차량번호', '기사명', '기사연락처'
                 ]
                 
                 existing_data = sheet.get_all_values()
@@ -110,7 +120,8 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                         f_address, f_purch_v,
                         row['품목'], row['규격'], row['수량'], row['단위'], 
                         row['색상'], row['가공'], row['KS'], row['비고'], 
-                        row['매입단가'], row['매출단가']
+                        row['매입단가'], row['매출단가'],
+                        f_ship_cost, f_ship_comp, f_ship_car, f_ship_driver, f_ship_phone
                     ])
                     
                 sheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
@@ -121,7 +132,7 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
             st.error(f"저장 중 오류 발생: {e}")
             st.session_state.is_saved = False
 
-# 5. PDF 출력 미리보기 (동일 규격 블록 생성)
+# 6. PDF 출력 미리보기
 tbody_html = ""
 valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
 for i, row in valid_rows.iterrows():
@@ -137,7 +148,7 @@ for i, row in valid_rows.iterrows():
     </tr>
     """
 
-# 거래명세서/발주서 공통 템플릿 생성기 (엑셀 양식 완벽 반영)
+# 거래명세서/발주서 공통 템플릿 생성기
 def create_doc_block(title, receiver_label, receiver_name):
     return f"""
     <div style="width: 48%; padding: 10px; box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif;">
@@ -147,22 +158,37 @@ def create_doc_block(title, receiver_label, receiver_name):
         </div>
         
         <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px;">
-            <!-- 좌측: 수신처 정보 -->
-            <div style="width: 46%; display: flex; flex-direction: column;">
-                <div style="text-align: right; margin-bottom: 5px; color: #d32f2f; font-weight: bold;">납기일시: {f_due_date.strftime('%Y-%m-%d')} {f_due_time}</div>
-                <div style="font-size: 15px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 8px;">
-                    {receiver_name} <span style="font-size: 12px; font-weight: normal;">귀하</span>
-                </div>
-                <div style="line-height: 1.6;">
-                    <div><b>현장 :</b> {f_site}</div>
-                    <div><b>담당 :</b> {f_manager}</div>
-                    <div><b>H.P :</b> {f_phone}</div>
-                    <div style="word-break: keep-all;"><b>도착지 :</b> {f_address}</div>
-                </div>
-                <div style="margin-top: 8px;">아래와 같이 계산(납품)합니다.</div>
+            <!-- 좌측: 수신처 정보 (요청하신 순서 및 좌측 정렬 적용) -->
+            <div style="width: 46%;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 12px;">
+                    <tr>
+                        <td style="width: 55px; font-weight: bold;">납기일</td>
+                        <td>: <span style="color: #d32f2f; font-weight: bold;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">{receiver_label}</td>
+                        <td>: <span style="font-size: 14px; font-weight: bold;">{receiver_name}</span></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">현장명</td>
+                        <td>: {f_site}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">담당</td>
+                        <td>: {f_manager}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold;">전화</td>
+                        <td>: {f_phone}</td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; vertical-align: top;">도착지주소</td>
+                        <td style="word-break: keep-all;">: {f_address}</td>
+                    </tr>
+                </table>
             </div>
             
-            <!-- 우측: 공급자 정보 (칸 벗어남 방지) -->
+            <!-- 우측: 공급자 정보 -->
             <div style="width: 52%;">
                 <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; text-align: left; font-size: 11px;">
                     <tr>
@@ -198,6 +224,15 @@ def create_doc_block(title, receiver_label, receiver_name):
             </tr>
             {tbody_html}
         </table>
+        
+        <!-- 하단 운송 정보 추가 -->
+        <div style="margin-top: 15px; border: 1px solid #000; padding: 6px 10px; display: flex; justify-content: space-between; font-size: 11px; background-color: #fafafa;">
+            <div><b>운임:</b> {f_ship_cost}</div>
+            <div><b>운송사:</b> {f_ship_comp}</div>
+            <div><b>차량번호:</b> {f_ship_car}</div>
+            <div><b>기사명:</b> {f_ship_driver}</div>
+            <div><b>기사연락처:</b> {f_ship_phone}</div>
+        </div>
     </div>
     """
 
