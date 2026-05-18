@@ -19,30 +19,31 @@ def init_connection():
 
 st.title("📝 발주서 및 거래명세서 작성")
 
-# 2. 기본 정보 입력창
+# 2. 기본 정보 입력창 (레이아웃 개선)
 st.subheader("1. 기본 정보")
-c1, c2, c3, c4 = st.columns(4)
 
 # 마감월 선택용 리스트 (과거 1년 ~ 미래 5년)
 today = datetime.date.today()
 month_list = [(pd.to_datetime(today) + pd.DateOffset(months=i)).strftime("%Y-%m") for i in range(-12, 61)]
 
-with c1: 
-    f_close_month = st.selectbox("마감월 (시트저장용)", month_list, index=12)
-    f_sales_v = st.text_input("납품처")
-    f_address = st.text_input("도착지주소")
-with c2: 
-    f_date = st.date_input("발주일", today)
-    f_site = st.text_input("현장명")
-    f_purch_v = st.text_input("매입업체")
-with c3: 
-    cc1, cc2 = st.columns(2)
-    with cc1: f_due_date = st.date_input("납기일", today)
-    with cc2: f_due_time = st.text_input("납기시간", placeholder="오전 10시")
-    f_manager = st.text_input("담당(수령인)")
-with c4: 
-    st.markdown("<div style='margin-top: 73px;'></div>", unsafe_allow_html=True) # 줄맞춤용 공백
-    f_phone = st.text_input("수령인전화")
+# 1번째 줄
+r1c1, r1c2, r1c3, r1c4 = st.columns(4)
+with r1c1: f_close_month = st.selectbox("마감월 (저장용)", month_list, index=12)
+with r1c2: f_date = st.date_input("발주일", today)
+with r1c3: f_due_date = st.date_input("납기일", today)
+with r1c4: f_due_time = st.text_input("납기시간", placeholder="예: 오전 10시")
+
+# 2번째 줄
+r2c1, r2c2, r2c3, r2c4 = st.columns(4)
+with r2c1: f_sales_v = st.text_input("납품처")
+with r2c2: f_site = st.text_input("현장명")
+with r2c3: f_manager = st.text_input("담당(수령인)")
+with r2c4: f_phone = st.text_input("수령인전화")
+
+# 3번째 줄 (도착지 주소 길게)
+r3c1, r3c2 = st.columns([1, 3])
+with r3c1: f_purch_v = st.text_input("매입업체")
+with r3c2: f_address = st.text_input("도착지주소 (상세 입력)")
 
 # 공급자 정보 (고정)
 SUPPLIER_INFO = {
@@ -67,57 +68,63 @@ edited_df = st.data_editor(
 
 st.divider()
 
-# 4. 저장 버튼 및 헤더 자동 생성 로직
-if st.button("💾 마더데이터에 저장", type="primary"):
+# 4. 저장 및 PDF 발행 통합 로직
+st.subheader("3. 거래명세서 미리보기 및 발행")
+st.info("💡 아래 버튼을 누르면 구글 시트에 자동 저장된 후 PDF 파일이 다운로드됩니다.")
+
+# 저장 상태 플래그
+if 'is_saved' not in st.session_state:
+    st.session_state.is_saved = False
+
+if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_container_width=True):
     valid_df = edited_df[edited_df['품목'].astype(str).str.strip() != ""].copy()
     
     if valid_df.empty:
         st.error("⚠️ 품목을 하나 이상 입력해주세요.")
+        st.session_state.is_saved = False
     else:
         try:
-            client = init_connection()
-            sheet = client.open("석미_마더데이터").sheet1 
-            
-            # 구글 시트 헤더 (나중에 이 리스트 순서만 바꾸면 시트 순서도 변경됨)
-            expected_headers = [
-                '마감월', '발주일', '납기일', '납기시간', '납품처', '현장명', '담당(수령인)', '수령인전화',
-                '도착지주소', '매입업체',
-                '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', 
-                '매입단가', '매출단가'
-            ]
-            
-            existing_data = sheet.get_all_values()
-            
-            if not existing_data or existing_data[0] != expected_headers:
-                if not existing_data:
-                    sheet.append_row(expected_headers)
-                else:
-                    sheet.insert_row(expected_headers, index=1)
-            
-            rows_to_append = []
-            for _, row in valid_df.iterrows():
-                rows_to_append.append([
-                    f_close_month, # 마감월 (문자열 그대로 저장)
-                    f_date.strftime("%Y-%m-%d"), 
-                    f_due_date.strftime("%Y-%m-%d"),
-                    f_due_time, f_sales_v, f_site, f_manager, f_phone, 
-                    f_address, f_purch_v,
-                    row['품목'], row['규격'], row['수량'], row['단위'], 
-                    row['색상'], row['가공'], row['KS'], row['비고'], 
-                    row['매입단가'], row['매출단가']
-                ])
+            with st.spinner("구글 시트에 저장 중입니다..."):
+                client = init_connection()
+                sheet = client.open("석미_마더데이터").sheet1 
                 
-            sheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
-            st.success("✅ 구글 시트에 성공적으로 저장되었습니다!")
-            
+                expected_headers = [
+                    '마감월', '발주일', '납기일', '납기시간', '납품처', '현장명', '담당(수령인)', '수령인전화',
+                    '도착지주소', '매입업체',
+                    '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', 
+                    '매입단가', '매출단가'
+                ]
+                
+                existing_data = sheet.get_all_values()
+                
+                if not existing_data or existing_data[0] != expected_headers:
+                    if not existing_data:
+                        sheet.append_row(expected_headers)
+                    else:
+                        sheet.insert_row(expected_headers, index=1)
+                
+                rows_to_append = []
+                for _, row in valid_df.iterrows():
+                    rows_to_append.append([
+                        f_close_month,
+                        f_date.strftime("%Y-%m-%d"), 
+                        f_due_date.strftime("%Y-%m-%d"),
+                        f_due_time, f_sales_v, f_site, f_manager, f_phone, 
+                        f_address, f_purch_v,
+                        row['품목'], row['규격'], row['수량'], row['단위'], 
+                        row['색상'], row['가공'], row['KS'], row['비고'], 
+                        row['매입단가'], row['매출단가']
+                    ])
+                    
+                sheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
+                st.success("✅ 구글 시트 저장 완료! PDF 다운로드를 시작합니다.")
+                st.session_state.is_saved = True
+                
         except Exception as e:
             st.error(f"저장 중 오류 발생: {e}")
+            st.session_state.is_saved = False
 
-st.divider()
-
-# 5. PDF 출력 미리보기 (마감월 제외, 고정 공급자 정보 사용)
-st.subheader("3. 거래명세서/발주서 미리보기 및 PDF 다운로드")
-
+# 5. PDF 출력 미리보기
 tbody_html = ""
 valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
 for i, row in valid_rows.iterrows():
@@ -133,14 +140,20 @@ for i, row in valid_rows.iterrows():
     </tr>
     """
 
+# 자동 다운로드 자바스크립트 처리
+auto_download_js = ""
+if st.session_state.is_saved:
+    auto_download_js = """
+    window.onload = function() {
+        setTimeout(function() {
+            downloadPDF();
+        }, 500);
+    };
+    """
+    st.session_state.is_saved = False # 플래그 초기화
+
 html_template = f"""
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-
-<div style="text-align: right; max-width: 840px; margin: 0 auto 10px auto;">
-    <button onclick="downloadPDF()" style="padding: 10px 20px; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">
-        📥 PDF 다운로드
-    </button>
-</div>
 
 <div id="capture-area" style="max-width: 820px; margin: 0 auto; padding: 20px; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
     <h1 style="text-align: center; letter-spacing: 10px; border-bottom: 2px solid #000; padding-bottom: 10px;">거 래 명 세 서</h1>
@@ -203,6 +216,8 @@ html_template = f"""
         }};
         html2pdf().set(opt).from(element).save();
     }}
+    
+    {auto_download_js}
 </script>
 """
 
