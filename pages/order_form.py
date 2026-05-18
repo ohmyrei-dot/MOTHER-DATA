@@ -23,19 +23,25 @@ st.title("📝 발주서 및 거래명세서 작성")
 st.subheader("1. 기본 정보")
 c1, c2, c3, c4 = st.columns(4)
 
+# 마감월 선택용 리스트 (현재 월 기준 -2개월 ~ +9개월)
+today = datetime.date.today()
+month_list = [(pd.to_datetime(today) + pd.DateOffset(months=i)).strftime("%Y-%m") for i in range(-2, 10)]
+
 with c1: 
-    f_close_month = st.date_input("마감월 (시트저장용, 출력X)")
+    f_close_month = st.selectbox("마감월 (시트저장용)", month_list, index=2)
     f_sales_v = st.text_input("납품처")
     f_address = st.text_input("도착지주소")
 with c2: 
-    f_date = st.date_input("발주일", datetime.date.today())
+    f_date = st.date_input("발주일", today)
     f_site = st.text_input("현장명")
     f_purch_v = st.text_input("매입업체")
 with c3: 
-    f_due_date = st.date_input("납기일", datetime.date.today())
+    cc1, cc2 = st.columns(2)
+    with cc1: f_due_date = st.date_input("납기일", today)
+    with cc2: f_due_time = st.text_input("납기시간", placeholder="오전 10시")
     f_manager = st.text_input("담당(수령인)")
 with c4: 
-    f_due_time = st.text_input("납기시간", placeholder="예: 오전 10시")
+    st.markdown("<div style='margin-top: 73px;'></div>", unsafe_allow_html=True) # 줄맞춤용 공백
     f_phone = st.text_input("수령인전화")
 
 # 공급자 정보 (고정)
@@ -91,7 +97,7 @@ if st.button("💾 마더데이터에 저장", type="primary"):
             rows_to_append = []
             for _, row in valid_df.iterrows():
                 rows_to_append.append([
-                    f_close_month.strftime("%Y-%m"), # 마감월은 YYYY-MM 형식
+                    f_close_month, # 마감월 (문자열 그대로 저장)
                     f_date.strftime("%Y-%m-%d"), 
                     f_due_date.strftime("%Y-%m-%d"),
                     f_due_time, f_sales_v, f_site, f_manager, f_phone, 
