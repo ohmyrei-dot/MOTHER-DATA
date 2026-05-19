@@ -81,20 +81,6 @@ SUPPLIER_INFO = {
     "address": "경기도 남양주시 수동면 남가로 1771-1"
 }
 
-# 4. 품목 상세 입력창
-st.subheader("3. 품목 상세")
-if 'order_items' not in st.session_state:
-    st.session_state.order_items = pd.DataFrame([
-        {"품목": "", "규격": "", "수량": 1, "단위": "롤", "색상": "", "가공": "", "KS": "", "비고": "", "매입단가": 0, "매출단가": 0}
-    ])
-
-edited_df = st.data_editor(
-    st.session_state.order_items,
-    num_rows="dynamic",
-    use_container_width=True,
-    hide_index=True
-)
-
 st.divider()
 
 # 5. 저장 및 PDF 발행 통합 로직
