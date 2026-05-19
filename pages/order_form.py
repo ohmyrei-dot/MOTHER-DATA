@@ -162,6 +162,18 @@ def create_doc_block(title, receiver_label, receiver_name):
     # 운임란 빈칸 처리 (입력 없으면 띄어쓰기로 공간 확보)
     display_cost = f"₩ {f_ship_cost} 원" if f_ship_cost.strip() else "₩ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 원"
     
+    # 기사명 / 전화 합치기
+    driver_phone_arr = []
+    if f_ship_driver.strip(): driver_phone_arr.append(f_ship_driver.strip())
+    if f_ship_phone.strip(): driver_phone_arr.append(f_ship_phone.strip())
+    driver_phone_display = " / ".join(driver_phone_arr)
+    
+    # 출고지 / 출고자 합치기 (입력된 경우만)
+    sender_arr = []
+    if f_depot.strip(): sender_arr.append(f_depot.strip())
+    if f_sender.strip(): sender_arr.append(f_sender.strip())
+    f_sender_display = " / ".join(sender_arr)
+    
     return f"""
     <div style="width: 48%; padding: 10px; box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif;">
         <div style="position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
@@ -238,27 +250,31 @@ def create_doc_block(title, receiver_label, receiver_name):
         </table>
         
         <!-- 하단 운송 정보 표 -->
-        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 10.5px; text-align: center; margin-top: 10px;">
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; text-align: left; margin-top: 10px;">
             <tr>
-                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 13%;">운 임 ( 후불 )</td>
-                <td style="border: 1px solid #000; padding: 4px 2px; width: 13%;">{display_cost}</td>
-                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 9%;">차량번호</td>
-                <td style="border: 1px solid #000; padding: 4px 2px; width: 11%;">{f_ship_car}</td>
-                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 8%;">기사명</td>
-                <td style="border: 1px solid #000; padding: 4px 2px; width: 10%;">{f_ship_driver}</td>
-                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 8%;">전 화</td>
-                <td style="border: 1px solid #000; padding: 4px 2px; width: 11%;">{f_ship_phone}</td>
-                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; width: 8%;">인수자</td>
-                <td style="border: 1px solid #000; padding: 4px 2px; width: 9%;">{f_receiver}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9; width: 18%;">운임 ( 후불 )</td>
+                <td style="border: 1px solid #000; padding: 4px; text-align: center; width: 32%;">{display_cost}</td>
+                <td rowspan="4" style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9; width: 8%;">출<br>고<br>지</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9; width: 14%;">출고자</td>
+                <td style="border: 1px solid #000; padding: 4px; text-align: center; width: 28%;">{f_sender_display}</td>
             </tr>
             <tr>
-                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px;">출고지</td>
-                <td style="border: 1px solid #000; padding: 4px 2px;">{f_depot}</td>
-                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px;">출고자</td>
-                <td style="border: 1px solid #000; padding: 4px 2px;">{f_sender}</td>
-                <td style="border: 1px solid #000; font-weight: bold; padding: 4px 2px;">전 화</td>
-                <td style="border: 1px solid #000; padding: 4px 2px;">{f_sender_phone}</td>
-                <td colspan="4" style="border: 1px solid #000; font-weight: bold; padding: 4px 2px; letter-spacing: 0.5px; font-size: 11px;">FAX : 02-495-4856 &nbsp;&nbsp;&nbsp; Mobile 010-8645-4854</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9;">차량번호</td>
+                <td style="border: 1px solid #000; padding: 4px; text-align: center;">{f_ship_car}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9;">전 화</td>
+                <td style="border: 1px solid #000; padding: 4px; text-align: center;">{f_sender_phone}</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9;">기사명 / 전화</td>
+                <td style="border: 1px solid #000; padding: 4px; text-align: center;">{driver_phone_display}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9;">FAX</td>
+                <td style="border: 1px solid #000; padding: 4px; text-align: center;">02-495-4856</td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9;">인수자</td>
+                <td style="border: 1px solid #000; padding: 4px; text-align: center;">{f_receiver}</td>
+                <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9;">Mobile</td>
+                <td style="border: 1px solid #000; padding: 4px; text-align: center;">010-8645-4854</td>
             </tr>
         </table>
     </div>
