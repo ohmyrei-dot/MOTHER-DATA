@@ -353,47 +353,49 @@ if st.session_state.is_saved:
 html_template = f"""
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-<div style="text-align: right; max-width: 1050px; margin: 0 auto 10px auto;">
+<div style="text-align: right; max-width: 1040px; margin: 0 auto 10px auto;">
     <button onclick="downloadPDF()" style="padding: 10px 20px; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">
         📥 PDF 즉시 수동 다운로드 (A4 가로)
     </button>
 </div>
 
-<!-- PDF 캡처 전체 영역 -->
-<div id="capture-area" style="max-width: 1050px; margin: 0 auto; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
-    
-    <!-- 1페이지: 거래명세서 -->
-    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; position: relative; background-color: #fff;">
-        <!-- 중앙 절취선 -->
-        <div style="position: absolute; left: 50%; top: 20px; bottom: 20px; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
-        {ts_block}
-        {ts_block}
-    </div>
-    
-    <!-- 확실한 페이지 넘김 처리 (잘림 방지) -->
-    <div class="html2pdf__page-break"></div>
-    
-    <!-- 2페이지: 발주서 -->
-    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; background-color: #fff;">
-        {po_block}
-        <div style="width: 48%;"></div>
-    </div>
+<!-- 캡처 영역을 감싸서 캔버스 캡처 오류(좌측 잘림) 방지 -->
+<div style="display: flex; justify-content: center; width: 100%; overflow-x: auto;">
+    <!-- PDF 캡처 전체 영역 (width 고정) -->
+    <div id="capture-area" style="width: 1040px; min-width: 1040px; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
+        
+        <!-- 1페이지: 거래명세서 -->
+        <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; position: relative; background-color: #fff;">
+            <!-- 중앙 절취선 -->
+            <div style="position: absolute; left: 50%; top: 20px; bottom: 20px; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
+            {ts_block}
+            {ts_block}
+        </div>
+        
+        <!-- 확실한 페이지 넘김 처리 -->
+        <div class="html2pdf__page-break"></div>
+        
+        <!-- 2페이지: 발주서 -->
+        <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; background-color: #fff;">
+            {po_block}
+            <div style="width: 48%;"></div>
+        </div>
 
+    </div>
 </div>
 
 <script>
     function downloadPDF() {{
-        // PDF 생성 시 스크롤 위치에 따른 잘림 방지
+        // 스크롤을 맨 위로 고정
         window.scrollTo(0,0);
         
         var element = document.getElementById('capture-area');
         var opt = {{
-            margin:       0,
+            margin:       [5, 0, 5, 0], // 상하 여백 5mm를 주어 발주서 상단 잘림 방지
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 0.98 }},
-            html2canvas:  {{ scale: 2, scrollY: 0, windowWidth: 1050 }}, // 스크롤 고정 및 너비 고정
-            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
-            pagebreak:    {{ mode: ['legacy', 'css'] }} // 레거시 클래스 기반 나누기 우선
+            html2canvas:  {{ scale: 2, scrollY: 0, scrollX: 0 }}, // scrollX 0 추가로 좌측 잘림 완벽 차단
+            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }}
         }};
         html2pdf().set(opt).from(element).save();
     }}
