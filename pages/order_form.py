@@ -58,13 +58,14 @@ edited_df = st.data_editor(
     hide_index=True
 )
 
+st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+st.markdown("**[발주서] 특이사항**")
+f_po_note = st.text_area("특이사항", placeholder="발주서 하단에 출력될 특이사항을 기재하세요.", height=80, label_visibility="collapsed")
+
 st.divider()
 
-# 4. 하단 출력용 추가 정보 (운송 및 특이사항)
-st.subheader("3. 하단 출력 정보 (미입력 시 빈칸으로 고정 출력)")
-
-# 운송 정보 (거래명세서용)
-st.markdown("**[거래명세서] 운송 정보**")
+# 4. 하단 출력용 추가 정보 (운송정보)
+st.subheader("3. 운송정보")
 r4c1, r4c2, r4c3, r4c4 = st.columns(4)
 with r4c1: f_ship_cost = st.text_input("운임")
 with r4c2: f_ship_car = st.text_input("차량번호")
@@ -76,11 +77,6 @@ with r5c1: f_depot = st.text_input("출고지")
 with r5c2: f_sender = st.text_input("출고자")
 with r5c3: f_sender_phone = st.text_input("출고자 전화")
 with r5c4: f_receiver = st.text_input("인수자")
-
-# 특이사항 (발주서용)
-st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
-st.markdown("**[발주서] 특이사항**")
-f_po_note = st.text_area("특이사항", placeholder="발주서 하단에 출력될 특이사항을 기재하세요.", height=80)
 
 # 공급자 정보 (고정)
 SUPPLIER_INFO = {
@@ -149,8 +145,7 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
             st.session_state.is_saved = False
 
 # 6. PDF 출력용 템플릿 준비
-# (하단 영역 고정을 위해 빈 표를 13개까지 채워넣음)
-TOTAL_ROWS = 13 
+TOTAL_ROWS = 12  # 페이지 잘림 방지를 위해 12로 조정
 tbody_html = ""
 valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
 for i, row in valid_rows.iterrows():
@@ -183,16 +178,14 @@ for _ in range(empty_rows_count):
 
 # 거래명세서 템플릿 생성기
 def create_ts_block(receiver_name):
-    # 운임란 간격 벌리기 (₩ 기호와 원 글자를 양끝으로 정렬)
+    # 운임란 간격 벌리기
     display_cost = f'<div style="display: flex; justify-content: space-between; padding: 0 5px;"><span>₩</span><span style="text-align: center; flex-grow: 1;">{f_ship_cost}</span><span>원</span></div>'
     
-    # 기사명 / 전화 합치기
     driver_phone_arr = []
     if f_ship_driver.strip(): driver_phone_arr.append(f_ship_driver.strip())
     if f_ship_phone.strip(): driver_phone_arr.append(f_ship_phone.strip())
     driver_phone_display = " / ".join(driver_phone_arr)
     
-    # 출고지 / 출고자 합치기 (입력된 경우만)
     sender_arr = []
     if f_depot.strip(): sender_arr.append(f_depot.strip())
     if f_sender.strip(): sender_arr.append(f_sender.strip())
@@ -200,27 +193,26 @@ def create_ts_block(receiver_name):
     
     return f"""
     <div style="width: 48%; padding: 10px; box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif;">
-        <div style="position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+        <div style="position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 10px;">
             <h1 style="text-align: center; letter-spacing: 15px; font-size: 22px; margin: 0;">거 래 명 세 서</h1>
             <div style="position: absolute; right: 0; bottom: 5px; font-size: 12px; font-weight: bold;">{f_date.strftime('%Y - %m - %d')}</div>
         </div>
         
-        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px;">
-            <!-- 좌측: 수신처 정보 (정렬 개선) -->
-            <div style="width: 47%;">
-                <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 12px;">
-                    <tr><td style="width: 60px; font-weight: bold;">납기일</td><td style="width: 10px;">:</td><td><span style="color: #d32f2f; font-weight: bold;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</span></td></tr>
-                    <tr><td style="font-weight: bold;">납품처</td><td>:</td><td><span style="font-size: 14px; font-weight: bold;">{receiver_name}</span></td></tr>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; align-items: stretch;">
+            <!-- 좌측: 수신처 정보 (높이 및 글꼴 동일하게 맞춤) -->
+            <div style="width: 49%;">
+                <table style="width: 100%; height: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 12px;">
+                    <tr><td style="width: 55px; font-weight: bold;">납기일</td><td style="width: 10px;">:</td><td><span style="color: #d32f2f; font-weight: bold;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</span></td></tr>
+                    <tr><td style="font-weight: bold;">납품처</td><td>:</td><td>{receiver_name}</td></tr>
                     <tr><td style="font-weight: bold;">현장명</td><td>:</td><td>{f_site}</td></tr>
-                    <tr><td style="font-weight: bold;">담당</td><td>:</td><td>{f_manager}</td></tr>
-                    <tr><td style="font-weight: bold;">전화</td><td>:</td><td>{f_phone}</td></tr>
-                    <tr><td style="font-weight: bold; vertical-align: top; white-space: nowrap;">도착지주소</td><td style="vertical-align: top;">:</td><td style="word-break: keep-all;">{f_address}</td></tr>
+                    <tr><td style="font-weight: bold;">담 당</td><td>:</td><td>{f_manager}</td></tr>
+                    <tr><td style="font-weight: bold;">전 화</td><td>:</td><td>{f_phone}</td></tr>
                 </table>
             </div>
             
-            <!-- 우측: 공급자 정보 -->
-            <div style="width: 51%;">
-                <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; text-align: left; font-size: 11px;">
+            <!-- 우측: 공급자 정보 (높이 100% 꽉 채우기) -->
+            <div style="width: 49%;">
+                <table style="width: 100%; height: 100%; border-collapse: collapse; border: 2px solid #000; text-align: left; font-size: 11px;">
                     <tr>
                         <td rowspan="4" style="width: 18px; text-align: center; border-right: 1px solid #000; font-weight: bold; padding: 2px;">공<br>급<br>자</td>
                         <td style="padding: 3px 5px; border-right: 1px solid #000; border-bottom: 1px solid #000; width: 55px; white-space: nowrap;">등록번호</td>
@@ -241,6 +233,11 @@ def create_ts_block(receiver_name):
                 </table>
             </div>
         </div>
+        
+        <!-- 도착지 주소 (박스 밑 가로 전체) -->
+        <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 12px; margin-bottom: 10px;">
+            <tr><td style="width: 65px; font-weight: bold;">도착지주소</td><td style="width: 10px;">:</td><td style="word-break: keep-all;">{f_address}</td></tr>
+        </table>
         
         <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; text-align: center;">
             <tr style="background-color: #f0f0f0;">
@@ -297,19 +294,19 @@ def create_po_block(receiver_name):
             <h1 style="text-align: center; letter-spacing: 15px; font-size: 22px; margin: 0;">발 주 서</h1>
         </div>
         
-        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px;">
-            <!-- 좌측: 수신처 정보 (정렬 개선) -->
-            <div style="width: 47%;">
-                <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.8; font-size: 12px;">
-                    <tr><td style="width: 55px; font-weight: bold;">수 신</td><td style="width: 10px;">:</td><td><span style="font-size: 14px; font-weight: bold;">{receiver_name}</span></td></tr>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; align-items: stretch;">
+            <!-- 좌측: 수신처 정보 (글꼴 동일 적용) -->
+            <div style="width: 49%;">
+                <table style="width: 100%; height: 100%; border-collapse: collapse; text-align: left; line-height: 1.8; font-size: 12px;">
+                    <tr><td style="width: 55px; font-weight: bold;">수 신</td><td style="width: 10px;">:</td><td>{receiver_name}</td></tr>
                     <tr><td style="font-weight: bold;">발주일</td><td>:</td><td>{f_date.strftime('%Y-%m-%d')}</td></tr>
                     <tr><td style="font-weight: bold;">납기일</td><td>:</td><td><span style="color: #d32f2f; font-weight: bold;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</span></td></tr>
                 </table>
             </div>
             
-            <!-- 우측: 발신처 정보 (석미세이프 고정, 정렬 개선) -->
-            <div style="width: 51%;">
-                <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 11px;">
+            <!-- 우측: 발신처 정보 (높이 채우기) -->
+            <div style="width: 49%;">
+                <table style="width: 100%; height: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 11px;">
                     <tr><td style="width: 40px; font-weight: bold;">발 신</td><td style="width: 10px;">:</td><td style="font-weight: bold;">석미세이프</td></tr>
                     <tr><td style="font-weight: bold; vertical-align: top;">주 소</td><td style="vertical-align: top;">:</td><td style="word-break: keep-all;">경기도 남양주시 수동면 남가로<br>1771-1</td></tr>
                     <tr><td style="font-weight: bold;">전 화</td><td>:</td><td>031-559-4854</td></tr>
@@ -365,21 +362,18 @@ html_template = f"""
 <!-- PDF 캡처 전체 영역 -->
 <div id="capture-area" style="max-width: 1050px; margin: 0 auto; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
     
-    <!-- 1페이지: 거래명세서 (좌/우 쌍둥이 양면, 중앙 절취선 포함) -->
+    <!-- 1페이지: 거래명세서 -->
     <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; position: relative;">
-        <!-- 중앙 절취선(점선) 가이드 -->
+        <!-- 중앙 절취선 -->
         <div style="position: absolute; left: 50%; top: 20px; bottom: 20px; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
         {ts_block}
         {ts_block}
     </div>
     
-    <!-- 강제 페이지 넘김 -->
-    <div class="html2pdf__page-break"></div>
-    
-    <!-- 2페이지: 발주서 (좌측 1면만 사용, 우측 공백) -->
-    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box;">
+    <!-- 2페이지: 발주서 (페이지 잘림 방지 CSS 추가) -->
+    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; page-break-before: always;">
         {po_block}
-        <div style="width: 48%;"></div> <!-- 빈 공간 유지용 -->
+        <div style="width: 48%;"></div>
     </div>
 
 </div>
@@ -392,7 +386,8 @@ html_template = f"""
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 0.98 }},
             html2canvas:  {{ scale: 2 }},
-            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }} // A4 가로 방향으로 렌더링
+            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
+            pagebreak:    {{ mode: 'css' }} // css page-break 지원 활성화
         }};
         html2pdf().set(opt).from(element).save();
     }}
