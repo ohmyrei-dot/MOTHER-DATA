@@ -376,7 +376,7 @@ html_template = f"""
         <div class="html2pdf__page-break"></div>
         
         <!-- 2페이지: 발주서 -->
-        <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; background-color: #fff;">
+        <div style="display: flex; justify-content: space-between; width: 100%; padding: 40px 20px 20px 20px; box-sizing: border-box; background-color: #fff;">
             {po_block}
             <div style="width: 48%;"></div>
         </div>
@@ -391,7 +391,7 @@ html_template = f"""
         
         var element = document.getElementById('capture-area');
         var opt = {{
-            margin:       [5, 0, 5, 0], // 상하 여백 5mm를 주어 발주서 상단 잘림 방지
+            margin:       [10, 0, 10, 0], // 상하 여백 10mm로 확장하여 잘림 완벽 방지
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 0.98 }},
             html2canvas:  {{ scale: 2, scrollY: 0, scrollX: 0 }}, // scrollX 0 추가로 좌측 잘림 완벽 차단
