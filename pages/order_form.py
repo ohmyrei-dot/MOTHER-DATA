@@ -390,7 +390,7 @@ html_template = f"""
         var element = document.getElementById('capture-area');
         
         var opt = {{
-            margin:       5, // ★ 핵심: PDF 자체에 상하좌우 5mm 여백 강제 적용 (잘림 원천 방지)
+            margin:       [5, 5, 5, 7], // ★ 핵심: 좌측 여백을 7mm로 늘려 미세 밸런스 조정
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 1.0 }},
             html2canvas:  {{ scale: 2, useCORS: true }},
