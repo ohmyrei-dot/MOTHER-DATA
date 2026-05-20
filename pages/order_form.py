@@ -359,20 +359,23 @@ html_template = f"""
     </button>
 </div>
 
-<!-- 캡처 영역을 A4 가로 실제 사이즈(297mm)로 정확히 고정 -->
+<!-- 캡처 영역: A4 가로 픽셀 사이즈 (1122px) 강제 고정 -->
 <div style="display: flex; justify-content: center; width: 100%; background: #f0f2f6; padding: 20px; overflow-x: auto;">
-    <div id="capture-area" style="width: 297mm; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
+    <div id="capture-area" style="width: 1122px; min-width: 1122px; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
         
-        <!-- 1페이지: 거래명세서 (정확히 A4 높이 할당하여 넘침 방지) -->
-        <div style="width: 297mm; height: 210mm; padding: 15mm 12mm; box-sizing: border-box; display: flex; justify-content: space-between; position: relative; background-color: #fff;">
+        <!-- 1페이지: 거래명세서 (A4 가로 픽셀 높이 793px 고정하여 넘침 및 여백 오류 완벽 차단) -->
+        <div style="width: 1122px; height: 793px; padding: 40px; box-sizing: border-box; display: flex; justify-content: space-between; position: relative; background-color: #fff;">
             <!-- 중앙 절취선 -->
-            <div style="position: absolute; left: 50%; top: 15mm; bottom: 15mm; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
+            <div style="position: absolute; left: 50%; top: 40px; bottom: 40px; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
             {ts_block}
             {ts_block}
         </div>
         
-        <!-- 2페이지: 발주서 (css page-break 사용) -->
-        <div style="width: 297mm; height: 210mm; padding: 15mm 12mm; box-sizing: border-box; display: flex; justify-content: space-between; background-color: #fff; page-break-before: always;">
+        <!-- 강제 페이지 넘김 (빈 페이지 오류 방지용 안정적 클래스 방식) -->
+        <div class="html2pdf__page-break"></div>
+        
+        <!-- 2페이지: 발주서 (A4 가로 픽셀 높이 793px 고정) -->
+        <div style="width: 1122px; height: 793px; padding: 40px; box-sizing: border-box; display: flex; justify-content: space-between; background-color: #fff;">
             {po_block}
             <div style="width: 48%;"></div>
         </div>
@@ -382,14 +385,15 @@ html_template = f"""
 
 <script>
     function downloadPDF() {{
+        window.scrollTo(0,0);
         var element = document.getElementById('capture-area');
         var opt = {{
             margin:       0,
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 0.98 }},
-            html2canvas:  {{ scale: 2, useCORS: true, windowWidth: 1122 }}, // 297mm 해상도 고정
+            html2canvas:  {{ scale: 2, useCORS: true, scrollY: 0, scrollX: 0, windowWidth: 1122 }},
             jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
-            pagebreak:    {{ mode: 'css' }}
+            pagebreak:    {{ mode: 'legacy' }} // class="html2pdf__page-break"를 통한 강제 나눔 최우선 설정
         }};
         html2pdf().set(opt).from(element).save();
     }}
