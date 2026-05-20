@@ -363,15 +363,18 @@ html_template = f"""
 <div id="capture-area" style="max-width: 1050px; margin: 0 auto; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
     
     <!-- 1페이지: 거래명세서 -->
-    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; position: relative;">
+    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; position: relative; background-color: #fff;">
         <!-- 중앙 절취선 -->
         <div style="position: absolute; left: 50%; top: 20px; bottom: 20px; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
         {ts_block}
         {ts_block}
     </div>
     
-    <!-- 2페이지: 발주서 (페이지 잘림 방지 CSS 추가) -->
-    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; page-break-before: always;">
+    <!-- 확실한 페이지 넘김 처리 (잘림 방지) -->
+    <div class="html2pdf__page-break"></div>
+    
+    <!-- 2페이지: 발주서 -->
+    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; background-color: #fff;">
         {po_block}
         <div style="width: 48%;"></div>
     </div>
@@ -380,14 +383,17 @@ html_template = f"""
 
 <script>
     function downloadPDF() {{
+        // PDF 생성 시 스크롤 위치에 따른 잘림 방지
+        window.scrollTo(0,0);
+        
         var element = document.getElementById('capture-area');
         var opt = {{
             margin:       0,
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 0.98 }},
-            html2canvas:  {{ scale: 2 }},
+            html2canvas:  {{ scale: 2, scrollY: 0, windowWidth: 1050 }}, // 스크롤 고정 및 너비 고정
             jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
-            pagebreak:    {{ mode: 'css' }} // css page-break 지원 활성화
+            pagebreak:    {{ mode: ['legacy', 'css'] }} // 레거시 클래스 기반 나누기 우선
         }};
         html2pdf().set(opt).from(element).save();
     }}
