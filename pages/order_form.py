@@ -142,22 +142,22 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                 
         except Exception as e:
             st.error(f"저장 중 오류 발생: {e}")
-            st.session_state.is_saved = False
+                st.session_state.is_saved = False
 
 # 6. PDF 출력용 템플릿 준비
-TOTAL_ROWS = 10  # 페이지 넘침(빈 페이지 발생) 방지를 위해 10으로 안전하게 조정
+TOTAL_ROWS = 14  # 페이지 넘침 방지하면서 14줄로 확장
 tbody_html = ""
 valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
 for i, row in valid_rows.iterrows():
     tbody_html += f"""
     <tr>
-        <td style='text-align:center; padding:5px 4px; border:1px solid #000; height: 26px;'>{i+1}</td>
-        <td style='padding:5px 4px; border:1px solid #000; height: 26px;'>{row.get('품목', '')}</td>
-        <td style='padding:5px 4px; border:1px solid #000; height: 26px;'>{row.get('규격', '')}</td>
-        <td style='text-align:center; padding:5px 4px; border:1px solid #000; height: 26px;'>{row.get('수량', '')}</td>
-        <td style='text-align:center; padding:5px 4px; border:1px solid #000; height: 26px;'>{row.get('단위', '')}</td>
-        <td style='padding:5px 4px; border:1px solid #000; height: 26px;'>{row.get('색상', '')} {row.get('가공', '')} {row.get('KS', '')}</td>
-        <td style='padding:5px 4px; border:1px solid #000; height: 26px;'>{row.get('비고', '')}</td>
+        <td style='text-align:center; padding:4px; border:1px solid #000; height: 23px;'>{i+1}</td>
+        <td style='padding:4px; border:1px solid #000; height: 23px;'>{row.get('품목', '')}</td>
+        <td style='padding:4px; border:1px solid #000; height: 23px;'>{row.get('규격', '')}</td>
+        <td style='text-align:center; padding:4px; border:1px solid #000; height: 23px;'>{row.get('수량', '')}</td>
+        <td style='text-align:center; padding:4px; border:1px solid #000; height: 23px;'>{row.get('단위', '')}</td>
+        <td style='padding:4px; border:1px solid #000; height: 23px;'>{row.get('색상', '')} {row.get('가공', '')} {row.get('KS', '')}</td>
+        <td style='padding:4px; border:1px solid #000; height: 23px;'>{row.get('비고', '')}</td>
     </tr>
     """
 
@@ -166,13 +166,13 @@ empty_rows_count = max(0, TOTAL_ROWS - len(valid_rows))
 for _ in range(empty_rows_count):
     tbody_html += f"""
     <tr>
-        <td style='border:1px solid #000; height: 26px;'></td>
-        <td style='border:1px solid #000; height: 26px;'></td>
-        <td style='border:1px solid #000; height: 26px;'></td>
-        <td style='border:1px solid #000; height: 26px;'></td>
-        <td style='border:1px solid #000; height: 26px;'></td>
-        <td style='border:1px solid #000; height: 26px;'></td>
-        <td style='border:1px solid #000; height: 26px;'></td>
+        <td style='border:1px solid #000; height: 23px;'></td>
+        <td style='border:1px solid #000; height: 23px;'></td>
+        <td style='border:1px solid #000; height: 23px;'></td>
+        <td style='border:1px solid #000; height: 23px;'></td>
+        <td style='border:1px solid #000; height: 23px;'></td>
+        <td style='border:1px solid #000; height: 23px;'></td>
+        <td style='border:1px solid #000; height: 23px;'></td>
     </tr>
     """
 
@@ -235,25 +235,25 @@ def create_ts_block(receiver_name):
         </div>
         
         <!-- 도착지 주소 (박스 밑 가로 전체) -->
-        <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 12px; margin-bottom: 10px;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 12px; margin-bottom: 5px;">
             <tr><td style="width: 65px; font-weight: bold;">도착지주소</td><td style="width: 10px;">:</td><td style="word-break: keep-all;">{f_address}</td></tr>
         </table>
         
         <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; text-align: center;">
             <tr style="background-color: #f0f0f0;">
-                <th style="padding: 6px 4px; border: 1px solid #000; width: 30px;">No</th>
-                <th style="padding: 6px 4px; border: 1px solid #000;">품목</th>
-                <th style="padding: 6px 4px; border: 1px solid #000;">규격</th>
-                <th style="padding: 6px 4px; border: 1px solid #000; width: 35px;">수량</th>
-                <th style="padding: 6px 4px; border: 1px solid #000; width: 35px;">단위</th>
-                <th style="padding: 6px 4px; border: 1px solid #000;">상세(색상/가공/KS)</th>
-                <th style="padding: 6px 4px; border: 1px solid #000;">비고</th>
+                <th style="padding: 4px; border: 1px solid #000; width: 30px;">No</th>
+                <th style="padding: 4px; border: 1px solid #000;">품목</th>
+                <th style="padding: 4px; border: 1px solid #000;">규격</th>
+                <th style="padding: 4px; border: 1px solid #000; width: 35px;">수량</th>
+                <th style="padding: 4px; border: 1px solid #000; width: 35px;">단위</th>
+                <th style="padding: 4px; border: 1px solid #000;">상세(색상/가공/KS)</th>
+                <th style="padding: 4px; border: 1px solid #000;">비고</th>
             </tr>
             {tbody_html}
         </table>
         
         <!-- 하단 운송 정보 표 -->
-        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; text-align: left; margin-top: 10px;">
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; text-align: left; margin-top: 5px;">
             <tr>
                 <td style="border: 1px solid #000; font-weight: bold; padding: 4px; text-align: center; background-color: #f9f9f9; width: 18%;">운임 ( 후불 )</td>
                 <td style="border: 1px solid #000; padding: 4px; text-align: center; width: 32%;">{display_cost}</td>
@@ -318,19 +318,19 @@ def create_po_block(receiver_name):
         
         <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; text-align: center;">
             <tr style="background-color: #f0f0f0;">
-                <th style="padding: 6px 4px; border: 1px solid #000; width: 30px;">No</th>
-                <th style="padding: 6px 4px; border: 1px solid #000;">품목</th>
-                <th style="padding: 6px 4px; border: 1px solid #000;">규격</th>
-                <th style="padding: 6px 4px; border: 1px solid #000; width: 35px;">수량</th>
-                <th style="padding: 6px 4px; border: 1px solid #000; width: 35px;">단위</th>
-                <th style="padding: 6px 4px; border: 1px solid #000;">상세(색상/가공/KS)</th>
-                <th style="padding: 6px 4px; border: 1px solid #000;">비고</th>
+                <th style="padding: 4px; border: 1px solid #000; width: 30px;">No</th>
+                <th style="padding: 4px; border: 1px solid #000;">품목</th>
+                <th style="padding: 4px; border: 1px solid #000;">규격</th>
+                <th style="padding: 4px; border: 1px solid #000; width: 35px;">수량</th>
+                <th style="padding: 4px; border: 1px solid #000; width: 35px;">단위</th>
+                <th style="padding: 4px; border: 1px solid #000;">상세(색상/가공/KS)</th>
+                <th style="padding: 4px; border: 1px solid #000;">비고</th>
             </tr>
             {tbody_html}
         </table>
         
         <!-- 하단 특이사항 박스 -->
-        <div style="margin-top: 10px; border: 2px solid #000; padding: 8px 10px; font-size: 12px; text-align: left; height: 95px; box-sizing: border-box; overflow: hidden;">
+        <div style="margin-top: 5px; border: 2px solid #000; padding: 6px 10px; font-size: 12px; text-align: left; height: 85px; box-sizing: border-box; overflow: hidden;">
             <div style="font-weight: bold; margin-bottom: 5px; text-decoration: underline;">[ 특이사항 ]</div>
             <div style="line-height: 1.4;">{po_note_html}</div>
         </div>
