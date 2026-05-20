@@ -142,7 +142,7 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                 
         except Exception as e:
             st.error(f"저장 중 오류 발생: {e}")
-                st.session_state.is_saved = False
+            st.session_state.is_saved = False
 
 # 6. PDF 출력용 템플릿 준비
 TOTAL_ROWS = 10  # 페이지 넘침(빈 페이지 발생) 방지를 위해 10으로 안전하게 조정
