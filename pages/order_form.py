@@ -151,13 +151,13 @@ valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
 for i, row in valid_rows.iterrows():
     tbody_html += f"""
     <tr>
-        <td style='text-align:center; padding:4px; border:1px solid #000; height: 23px;'>{i+1}</td>
-        <td style='padding:4px; border:1px solid #000; height: 23px;'>{row.get('품목', '')}</td>
-        <td style='padding:4px; border:1px solid #000; height: 23px;'>{row.get('규격', '')}</td>
-        <td style='text-align:center; padding:4px; border:1px solid #000; height: 23px;'>{row.get('수량', '')}</td>
-        <td style='text-align:center; padding:4px; border:1px solid #000; height: 23px;'>{row.get('단위', '')}</td>
-        <td style='padding:4px; border:1px solid #000; height: 23px;'>{row.get('색상', '')} {row.get('가공', '')} {row.get('KS', '')}</td>
-        <td style='padding:4px; border:1px solid #000; height: 23px;'>{row.get('비고', '')}</td>
+        <td style='text-align:center; padding:0 4px; border:1px solid #000; height: 23px;'><div style='height:23px; line-height:23px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;'>{i+1}</div></td>
+        <td style='padding:0 4px; border:1px solid #000; height: 23px;'><div style='height:23px; line-height:23px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;'>{row.get('품목', '')}</div></td>
+        <td style='padding:0 4px; border:1px solid #000; height: 23px;'><div style='height:23px; line-height:23px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;'>{row.get('규격', '')}</div></td>
+        <td style='text-align:center; padding:0 4px; border:1px solid #000; height: 23px;'><div style='height:23px; line-height:23px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;'>{row.get('수량', '')}</div></td>
+        <td style='text-align:center; padding:0 4px; border:1px solid #000; height: 23px;'><div style='height:23px; line-height:23px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;'>{row.get('단위', '')}</div></td>
+        <td style='padding:0 4px; border:1px solid #000; height: 23px;'><div style='height:23px; line-height:23px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;'>{row.get('색상', '')} {row.get('가공', '')} {row.get('KS', '')}</div></td>
+        <td style='padding:0 4px; border:1px solid #000; height: 23px;'><div style='height:23px; line-height:23px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;'>{row.get('비고', '')}</div></td>
     </tr>
     """
 
@@ -166,13 +166,13 @@ empty_rows_count = max(0, TOTAL_ROWS - len(valid_rows))
 for _ in range(empty_rows_count):
     tbody_html += f"""
     <tr>
-        <td style='border:1px solid #000; height: 23px;'></td>
-        <td style='border:1px solid #000; height: 23px;'></td>
-        <td style='border:1px solid #000; height: 23px;'></td>
-        <td style='border:1px solid #000; height: 23px;'></td>
-        <td style='border:1px solid #000; height: 23px;'></td>
-        <td style='border:1px solid #000; height: 23px;'></td>
-        <td style='border:1px solid #000; height: 23px;'></td>
+        <td style='border:1px solid #000; height: 23px;'><div style='height:23px;'></div></td>
+        <td style='border:1px solid #000; height: 23px;'><div style='height:23px;'></div></td>
+        <td style='border:1px solid #000; height: 23px;'><div style='height:23px;'></div></td>
+        <td style='border:1px solid #000; height: 23px;'><div style='height:23px;'></div></td>
+        <td style='border:1px solid #000; height: 23px;'><div style='height:23px;'></div></td>
+        <td style='border:1px solid #000; height: 23px;'><div style='height:23px;'></div></td>
+        <td style='border:1px solid #000; height: 23px;'><div style='height:23px;'></div></td>
     </tr>
     """
 
@@ -365,8 +365,8 @@ html_template = f"""
     <!-- 실제 캡처 영역 (너비 1050px 고정) -->
     <div id="capture-area" style="width: 1050px; margin: 0; background: #fff; padding: 20px; box-sizing: border-box; color: #000; font-family: 'Malgun Gothic', sans-serif;">
         
-        <!-- 1페이지: 거래명세서 -->
-        <div style="display: flex; justify-content: space-between; width: 100%; position: relative;">
+        <!-- 1페이지: 거래명세서 (높이 738px 강제 고정하여 페이지 밀림 원천 차단) -->
+        <div style="display: flex; justify-content: space-between; width: 100%; position: relative; height: 738px; overflow: hidden; page-break-after: always;">
             <!-- 중앙 절취선 -->
             <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
             {ts_block}
@@ -376,8 +376,8 @@ html_template = f"""
         <!-- 강제 페이지 넘김 -->
         <div class="html2pdf__page-break"></div>
         
-        <!-- 2페이지: 발주서 (상단 여백 30px로 살짝 아래로 배치) -->
-        <div style="display: flex; justify-content: space-between; width: 100%; padding-top: 30px;">
+        <!-- 2페이지: 발주서 (높이 738px 강제 고정 및 확실한 페이지 분리) -->
+        <div style="display: flex; justify-content: space-between; width: 100%; padding-top: 30px; height: 738px; overflow: hidden; page-break-before: always;">
             {po_block}
             <div style="width: 48%;"></div>
         </div>
@@ -395,7 +395,7 @@ html_template = f"""
             image:        {{ type: 'jpeg', quality: 1.0 }},
             html2canvas:  {{ scale: 2, useCORS: true }},
             jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
-            pagebreak:    {{ mode: 'legacy' }} 
+            pagebreak:    {{ mode: ['css', 'legacy'] }} // css page-break 지원 추가
         }};
         
         html2pdf().set(opt).from(element).save();
