@@ -156,11 +156,11 @@ for i, row in valid_rows.iterrows():
     </tr>
     """
 
-# 거래명세서/발주서 공통 템플릿 생성기
-def create_doc_block(title, receiver_label, receiver_name):
+# 거래명세서 템플릿 생성기
+def create_ts_block(receiver_name):
     
-    # 운임란 빈칸 처리 (입력 없으면 띄어쓰기로 공간 확보)
-    display_cost = f"₩ {f_ship_cost} 원" if f_ship_cost.strip() else "₩ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 원"
+    # 운임란 간격 벌리기 (₩ 기호와 원 글자를 양끝으로 정렬)
+    display_cost = f'<div style="display: flex; justify-content: space-between; padding: 0 5px;"><span>₩</span><span style="text-align: center; flex-grow: 1;">{f_ship_cost}</span><span>원</span></div>'
     
     # 기사명 / 전화 합치기
     driver_phone_arr = []
@@ -177,12 +177,12 @@ def create_doc_block(title, receiver_label, receiver_name):
     return f"""
     <div style="width: 48%; padding: 10px; box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif;">
         <div style="position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
-            <h1 style="text-align: center; letter-spacing: 15px; font-size: 22px; margin: 0;">{title}</h1>
+            <h1 style="text-align: center; letter-spacing: 15px; font-size: 22px; margin: 0;">거 래 명 세 서</h1>
             <div style="position: absolute; right: 0; bottom: 5px; font-size: 12px; font-weight: bold;">{f_date.strftime('%Y - %m - %d')}</div>
         </div>
         
         <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px;">
-            <!-- 좌측: 수신처 정보 (요청하신 순서 및 좌측 정렬 적용) -->
+            <!-- 좌측: 수신처 정보 -->
             <div style="width: 46%;">
                 <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 12px;">
                     <tr>
@@ -190,7 +190,7 @@ def create_doc_block(title, receiver_label, receiver_name):
                         <td>: <span style="color: #d32f2f; font-weight: bold;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</span></td>
                     </tr>
                     <tr>
-                        <td style="font-weight: bold;">{receiver_label}</td>
+                        <td style="font-weight: bold;">납품처</td>
                         <td>: <span style="font-size: 14px; font-weight: bold;">{receiver_name}</span></td>
                     </tr>
                     <tr>
@@ -280,9 +280,54 @@ def create_doc_block(title, receiver_label, receiver_name):
     </div>
     """
 
+# 발주서 분리 템플릿 생성기
+def create_po_block(receiver_name):
+    return f"""
+    <div style="width: 48%; padding: 10px; box-sizing: border-box; font-family: 'Malgun Gothic', sans-serif;">
+        <div style="position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px;">
+            <h1 style="text-align: center; letter-spacing: 15px; font-size: 22px; margin: 0;">발 주 서</h1>
+        </div>
+        
+        <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px;">
+            <!-- 좌측: 수신처 정보 -->
+            <div style="width: 48%;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.8; font-size: 12px;">
+                    <tr><td style="width: 60px; font-weight: bold;">수 신</td><td>: <span style="font-size: 14px; font-weight: bold;">{receiver_name}</span></td></tr>
+                    <tr><td style="font-weight: bold;">발주일</td><td>: {f_date.strftime('%Y-%m-%d')}</td></tr>
+                    <tr><td style="font-weight: bold;">납기일</td><td>: <span style="color: #d32f2f; font-weight: bold;">{f_due_date.strftime('%Y-%m-%d')} {f_due_time}</span></td></tr>
+                </table>
+            </div>
+            
+            <!-- 우측: 발신처 정보 (석미세이프 고정) -->
+            <div style="width: 50%;">
+                <table style="width: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 11px;">
+                    <tr><td style="width: 40px; font-weight: bold;">발 신</td><td style="font-weight: bold;">: 석미세이프</td></tr>
+                    <tr><td style="font-weight: bold; vertical-align: top;">주 소</td><td style="word-break: keep-all;">: 경기도 남양주시 수동면 남가로 1771-1</td></tr>
+                    <tr><td style="font-weight: bold;">전 화</td><td>: 031-559-4854</td></tr>
+                    <tr><td style="font-weight: bold;">팩 스</td><td>: 02-6008-4854</td></tr>
+                    <tr><td style="font-weight: bold;">E-mail</td><td>: sm_safe@naver.com</td></tr>
+                </table>
+            </div>
+        </div>
+        
+        <table style="width: 100%; border-collapse: collapse; border: 2px solid #000; font-size: 11px; text-align: center;">
+            <tr style="background-color: #f0f0f0;">
+                <th style="padding: 6px 4px; border: 1px solid #000; width: 30px;">No</th>
+                <th style="padding: 6px 4px; border: 1px solid #000;">품목</th>
+                <th style="padding: 6px 4px; border: 1px solid #000;">규격</th>
+                <th style="padding: 6px 4px; border: 1px solid #000; width: 35px;">수량</th>
+                <th style="padding: 6px 4px; border: 1px solid #000; width: 35px;">단위</th>
+                <th style="padding: 6px 4px; border: 1px solid #000;">상세(색상/가공/KS)</th>
+                <th style="padding: 6px 4px; border: 1px solid #000;">비고</th>
+            </tr>
+            {tbody_html}
+        </table>
+    </div>
+    """
+
 # 블록 생성
-ts_block = create_doc_block("거 래 명 세 서", "납품처", f_sales_v)
-po_block = create_doc_block("발 주 서", "발주처", f_purch_v)
+ts_block = create_ts_block(f_sales_v)
+po_block = create_po_block(f_purch_v)
 
 auto_download_js = ""
 if st.session_state.is_saved:
