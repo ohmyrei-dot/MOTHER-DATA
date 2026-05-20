@@ -426,24 +426,36 @@ html_template = f"""
         var wrapper = document.getElementById('preview-wrapper');
         var element = document.getElementById('capture-area');
         
-        // 핵심: 캡처하는 순간에만 가운데 정렬과 스케일 축소를 모두 해제하여 좌측 잘림 버그 완벽 차단!
+        // 기존 속성 백업
+        var oldPosition = wrapper.style.position;
+        
+        // 핵심: 캡처하는 순간에만 화면 맨 좌측 상단(0,0)으로 강제 고정하여 좌측 잘림 완벽 차단!
+        wrapper.style.transform = 'none';
         wrapper.style.justifyContent = 'flex-start';
-        wrapper.style.transform = 'scale(1)';
+        wrapper.style.position = 'absolute';
+        wrapper.style.left = '0px';
+        wrapper.style.top = '0px';
         
-        var opt = {{
-            margin:       [5, 0, 5, 0], 
-            filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
-            image:        {{ type: 'jpeg', quality: 0.98 }},
-            html2canvas:  {{ scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 1050 }},
-            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
-            pagebreak:    {{ mode: 'legacy' }} 
-        }};
-        
-        html2pdf().set(opt).from(element).save().then(function() {{
-            // PDF 저장이 끝나면 찰나의 순간에 다시 가운데 정렬 & 원래 스케일로 감쪽같이 복구
-            wrapper.style.justifyContent = 'center';
-            fitToScreen(); 
-        }});
+        // 브라우저 렌더링 갱신을 위해 0.1초 대기 후 캡처
+        setTimeout(function() {{
+            var opt = {{
+                margin:       [5, 0, 5, 0], 
+                filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
+                image:        {{ type: 'jpeg', quality: 0.98 }},
+                html2canvas:  {{ scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 1050 }},
+                jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
+                pagebreak:    {{ mode: 'legacy' }} 
+            }};
+            
+            html2pdf().set(opt).from(element).save().then(function() {{
+                // PDF 저장이 끝나면 다시 원상태로 복구
+                wrapper.style.position = oldPosition;
+                wrapper.style.left = '';
+                wrapper.style.top = '';
+                wrapper.style.justifyContent = 'center';
+                fitToScreen(); 
+            }});
+        }}, 100);
     }}
     
     {auto_download_js}
