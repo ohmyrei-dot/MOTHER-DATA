@@ -351,6 +351,26 @@ if st.session_state.is_saved:
     st.session_state.is_saved = False
 
 html_template = f"""
+<style>
+    /* 스크롤바 완벽 숨기기 */
+    ::-webkit-scrollbar {{
+        display: none;
+    }}
+    body {{
+        -ms-overflow-style: none; 
+        scrollbar-width: none; 
+        margin: 0;
+        padding: 0;
+    }}
+    #preview-wrapper {{
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        transform-origin: top center; /* 축소될 때 상단 중앙 기준 */
+        transition: transform 0.2s ease;
+    }}
+</style>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <div style="text-align: right; max-width: 1050px; margin: 0 auto 10px auto;">
@@ -359,45 +379,76 @@ html_template = f"""
     </button>
 </div>
 
-<!-- 캡처 영역 (불필요한 스크롤 제거 및 자연스러운 배율 복구) -->
-<div id="capture-area" style="max-width: 1050px; margin: 0 auto; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
+<!-- 화면 크기에 맞춰 스케일 조정되는 래퍼 (가로 스크롤 방지) -->
+<div id="preview-wrapper">
     
-    <!-- 1페이지: 거래명세서 -->
-    <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; position: relative; background-color: #fff;">
-        <!-- 중앙 절취선 -->
-        <div style="position: absolute; left: 50%; top: 20px; bottom: 20px; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
-        {ts_block}
-        {ts_block}
-    </div>
-    
-    <!-- 강제 페이지 넘김 -->
-    <div class="html2pdf__page-break"></div>
-    
-    <!-- 2페이지: 발주서 (상단 여백 50px 추가로 살짝 아래로 배치) -->
-    <div style="display: flex; justify-content: space-between; width: 100%; padding: 50px 20px 20px 20px; box-sizing: border-box; background-color: #fff;">
-        {po_block}
-        <div style="width: 48%;"></div>
-    </div>
+    <!-- 실제 캡처 영역 (너비 1050px 절대 고정, 여기서부터 PDF로 변환됨) -->
+    <div id="capture-area" style="width: 1050px; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
+        
+        <!-- 1페이지: 거래명세서 -->
+        <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; position: relative; background-color: #fff;">
+            <!-- 중앙 절취선 -->
+            <div style="position: absolute; left: 50%; top: 20px; bottom: 20px; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
+            {ts_block}
+            {ts_block}
+        </div>
+        
+        <!-- 강제 페이지 넘김 -->
+        <div class="html2pdf__page-break"></div>
+        
+        <!-- 2페이지: 발주서 (상단 여백 50px로 살짝 아래로 배치) -->
+        <div style="display: flex; justify-content: space-between; width: 100%; padding: 50px 20px 20px 20px; box-sizing: border-box; background-color: #fff;">
+            {po_block}
+            <div style="width: 48%;"></div>
+        </div>
 
+    </div>
 </div>
 
 <script>
+    // 1. 화면 폭이 좁을 때 문서가 자동으로 축소되어 한눈에 보이게 하는 반응형 함수
+    function fitToScreen() {{
+        var wrapper = document.getElementById('preview-wrapper');
+        var windowWidth = window.innerWidth || document.documentElement.clientWidth;
+        if (windowWidth < 1070) {{
+            var scale = (windowWidth - 20) / 1050;
+            wrapper.style.transform = 'scale(' + scale + ')';
+        }} else {{
+            wrapper.style.transform = 'scale(1)';
+        }}
+    }}
+    window.addEventListener('resize', fitToScreen);
+    setTimeout(fitToScreen, 100);
+
+    // 2. PDF 생성 함수
     function downloadPDF() {{
         window.scrollTo(0,0);
+        var wrapper = document.getElementById('preview-wrapper');
         var element = document.getElementById('capture-area');
+        
+        // 핵심: 캡처하는 순간에만 가운데 정렬과 스케일 축소를 모두 해제하여 좌측 잘림 버그 완벽 차단!
+        wrapper.style.justifyContent = 'flex-start';
+        wrapper.style.transform = 'scale(1)';
+        
         var opt = {{
             margin:       [5, 0, 5, 0], 
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 0.98 }},
-            html2canvas:  {{ scale: 2, useCORS: true, scrollY: 0, windowWidth: 1050 }},
+            html2canvas:  {{ scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 1050 }},
             jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
             pagebreak:    {{ mode: 'legacy' }} 
         }};
-        html2pdf().set(opt).from(element).save();
+        
+        html2pdf().set(opt).from(element).save().then(function() {{
+            // PDF 저장이 끝나면 찰나의 순간에 다시 가운데 정렬 & 원래 스케일로 감쪽같이 복구
+            wrapper.style.justifyContent = 'center';
+            fitToScreen(); 
+        }});
     }}
     
     {auto_download_js}
 </script>
 """
 
-st.components.v1.html(html_template, height=1300, scrolling=True)
+# 스크롤바 요소를 최소화하고 한눈에 보이도록 레이아웃 설정
+st.components.v1.html(html_template, height=1400, scrolling=False)
