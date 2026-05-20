@@ -142,10 +142,10 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                 
         except Exception as e:
             st.error(f"저장 중 오류 발생: {e}")
-            st.session_state.is_saved = False
+                st.session_state.is_saved = False
 
 # 6. PDF 출력용 템플릿 준비
-TOTAL_ROWS = 12  # 페이지 잘림 방지를 위해 12로 조정
+TOTAL_ROWS = 10  # 페이지 넘침(빈 페이지 발생) 방지를 위해 10으로 안전하게 조정
 tbody_html = ""
 valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
 for i, row in valid_rows.iterrows():
@@ -353,30 +353,26 @@ if st.session_state.is_saved:
 html_template = f"""
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-<div style="text-align: right; max-width: 1040px; margin: 0 auto 10px auto;">
+<div style="text-align: right; max-width: 1122px; margin: 0 auto 10px auto;">
     <button onclick="downloadPDF()" style="padding: 10px 20px; background-color: #ff4b4b; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold;">
         📥 PDF 즉시 수동 다운로드 (A4 가로)
     </button>
 </div>
 
-<!-- 캡처 영역을 감싸서 캔버스 캡처 오류(좌측 잘림) 방지 -->
-<div style="display: flex; justify-content: center; width: 100%; overflow-x: auto;">
-    <!-- PDF 캡처 전체 영역 (width 고정) -->
-    <div id="capture-area" style="width: 1040px; min-width: 1040px; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
+<!-- 캡처 영역을 A4 가로 실제 사이즈(297mm)로 정확히 고정 -->
+<div style="display: flex; justify-content: center; width: 100%; background: #f0f2f6; padding: 20px; overflow-x: auto;">
+    <div id="capture-area" style="width: 297mm; background: #fff; color: #000; font-family: 'Malgun Gothic', sans-serif;">
         
-        <!-- 1페이지: 거래명세서 -->
-        <div style="display: flex; justify-content: space-between; width: 100%; padding: 20px; box-sizing: border-box; position: relative; background-color: #fff;">
+        <!-- 1페이지: 거래명세서 (정확히 A4 높이 할당하여 넘침 방지) -->
+        <div style="width: 297mm; height: 210mm; padding: 15mm 12mm; box-sizing: border-box; display: flex; justify-content: space-between; position: relative; background-color: #fff;">
             <!-- 중앙 절취선 -->
-            <div style="position: absolute; left: 50%; top: 20px; bottom: 20px; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
+            <div style="position: absolute; left: 50%; top: 15mm; bottom: 15mm; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
             {ts_block}
             {ts_block}
         </div>
         
-        <!-- 확실한 페이지 넘김 처리 -->
-        <div class="html2pdf__page-break"></div>
-        
-        <!-- 2페이지: 발주서 -->
-        <div style="display: flex; justify-content: space-between; width: 100%; padding: 40px 20px 20px 20px; box-sizing: border-box; background-color: #fff;">
+        <!-- 2페이지: 발주서 (css page-break 사용) -->
+        <div style="width: 297mm; height: 210mm; padding: 15mm 12mm; box-sizing: border-box; display: flex; justify-content: space-between; background-color: #fff; page-break-before: always;">
             {po_block}
             <div style="width: 48%;"></div>
         </div>
@@ -386,16 +382,14 @@ html_template = f"""
 
 <script>
     function downloadPDF() {{
-        // 스크롤을 맨 위로 고정
-        window.scrollTo(0,0);
-        
         var element = document.getElementById('capture-area');
         var opt = {{
-            margin:       [10, 0, 10, 0], // 상하 여백 10mm로 확장하여 잘림 완벽 방지
+            margin:       0,
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 0.98 }},
-            html2canvas:  {{ scale: 2, scrollY: 0, scrollX: 0 }}, // scrollX 0 추가로 좌측 잘림 완벽 차단
-            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }}
+            html2canvas:  {{ scale: 2, useCORS: true, windowWidth: 1122 }}, // 297mm 해상도 고정
+            jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
+            pagebreak:    {{ mode: 'css' }}
         }};
         html2pdf().set(opt).from(element).save();
     }}
@@ -404,4 +398,4 @@ html_template = f"""
 </script>
 """
 
-st.components.v1.html(html_template, height=1300, scrolling=True)
+st.components.v1.html(html_template, height=1200, scrolling=True)
