@@ -365,19 +365,19 @@ html_template = f"""
     <!-- 실제 캡처 영역 (너비 1050px 고정) -->
     <div id="capture-area" style="width: 1050px; margin: 0; background: #fff; padding: 20px; box-sizing: border-box; color: #000; font-family: 'Malgun Gothic', sans-serif;">
         
-        <!-- 1페이지: 거래명세서 (높이 738px 강제 고정하여 페이지 밀림 원천 차단) -->
-        <div style="display: flex; justify-content: space-between; width: 100%; position: relative; height: 738px; overflow: hidden; page-break-after: always;">
+        <!-- 1페이지: 거래명세서 -->
+        <div style="display: flex; justify-content: space-between; width: 100%; position: relative;">
             <!-- 중앙 절취선 -->
             <div style="position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed #666; transform: translateX(-50%);"></div>
             {ts_block}
             {ts_block}
         </div>
         
-        <!-- 강제 페이지 넘김 -->
+        <!-- 강제 페이지 넘김 딱 1번만 적용 -->
         <div class="html2pdf__page-break"></div>
         
-        <!-- 2페이지: 발주서 (높이 738px 강제 고정 및 확실한 페이지 분리) -->
-        <div style="display: flex; justify-content: space-between; width: 100%; padding-top: 30px; height: 738px; overflow: hidden; page-break-before: always;">
+        <!-- 2페이지: 발주서 -->
+        <div style="display: flex; justify-content: space-between; width: 100%; padding-top: 30px;">
             {po_block}
             <div style="width: 48%;"></div>
         </div>
@@ -390,12 +390,12 @@ html_template = f"""
         var element = document.getElementById('capture-area');
         
         var opt = {{
-            margin:       [5, 9, 5, 4], // ★ 좌측 여백 9mm, 우측 여백 4mm로 미세 밸런스 완벽 조정 (Top, Left, Bottom, Right)
+            margin:       [5, 9, 5, 4], // ★ 좌측 여백 9mm, 우측 여백 4mm
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 1.0 }},
             html2canvas:  {{ scale: 2, useCORS: true }},
             jsPDF:        {{ unit: 'mm', format: 'a4', orientation: 'landscape' }},
-            pagebreak:    {{ mode: ['css', 'legacy'] }} // css page-break 지원 추가
+            pagebreak:    {{ mode: 'legacy' }} // class="html2pdf__page-break" 전용 모드
         }};
         
         html2pdf().set(opt).from(element).save();
