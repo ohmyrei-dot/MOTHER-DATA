@@ -390,7 +390,7 @@ html_template = f"""
         var element = document.getElementById('capture-area');
         
         var opt = {{
-            margin:       [5, 5, 5, 7], // ★ 핵심: 좌측 여백을 7mm로 늘려 미세 밸런스 조정
+            margin:       [5, 9, 5, 4], // ★ 좌측 여백 9mm, 우측 여백 4mm로 미세 밸런스 완벽 조정 (Top, Left, Bottom, Right)
             filename:     '거래명세서_및_발주서_{f_sales_v}.pdf',
             image:        {{ type: 'jpeg', quality: 1.0 }},
             html2canvas:  {{ scale: 2, useCORS: true }},
