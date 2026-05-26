@@ -79,7 +79,7 @@ if not df_history.empty and '발주일' in df_history.columns:
                                  ('f_sender', '출고자'), ('f_sender_phone', '출고자전화'), ('f_receiver', '인수자'), ('f_po_note', '특이사항')]:
                         st.session_state[k] = str(first_row.get(col, ''))
                         
-                    items_cols = [c for c in ['매입업체', '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', '매입단가', '매출단가'] if c in target_df.columns]
+                    items_cols = [c for c in ['품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', '매입단가', '매출단가', '매입업체'] if c in target_df.columns]
                     new_items = target_df[items_cols].copy()
                     if '매입업체' not in new_items.columns: new_items['매입업체'] = st.session_state.f_purch_v
                     
@@ -88,10 +88,10 @@ if not df_history.empty and '발주일' in df_history.columns:
                     new_items['매출단가'] = pd.to_numeric(new_items.get('매출단가', 0), errors='coerce').fillna(0)
                     
                     # 빈 컬럼 채우기
-                    for c in ["매입업체", "품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가"]:
+                    for c in ["품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가", "매입업체"]:
                         if c not in new_items.columns: new_items[c] = ""
                         
-                    st.session_state.order_items = new_items[["매입업체", "품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가"]]
+                    st.session_state.order_items = new_items[["품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가", "매입업체"]]
                     st.rerun()
 
 # 2. 기본 정보 입력창
@@ -109,25 +109,27 @@ if not df_history.empty and '주문번호' in df_history.columns:
         except: pass
 default_order_no = f"{today_str}-{seq:02d}"
 
-# 1번째 줄
-r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns(5)
-with r1c1: f_order_no = st.text_input("주문번호", value=st.session_state.f_order_no if st.session_state.f_order_no else default_order_no)
-with r1c2: f_close_month = st.selectbox("마감월 (저장용)", month_list, index=month_list.index(st.session_state.f_close_month) if st.session_state.f_close_month in month_list else 12)
-with r1c3: f_date = st.date_input("발주일", st.session_state.f_date)
-with r1c4: f_due_date = st.date_input("납기일", st.session_state.f_due_date)
-with r1c5: f_due_time = st.text_input("납기시간", value=st.session_state.f_due_time, placeholder="예: 오전 10시")
+# 주문번호 단독
+f_order_no = st.text_input("주문번호", value=st.session_state.f_order_no if st.session_state.f_order_no else default_order_no)
 
-# 2번째 줄
+# 1번째 줄 (4칸)
+r1c1, r1c2, r1c3, r1c4 = st.columns(4)
+with r1c1: f_close_month = st.selectbox("마감월 (저장용)", month_list, index=month_list.index(st.session_state.f_close_month) if st.session_state.f_close_month in month_list else 12)
+with r1c2: f_date = st.date_input("발주일", st.session_state.f_date)
+with r1c3: f_due_date = st.date_input("납기일", st.session_state.f_due_date)
+with r1c4: f_due_time = st.text_input("납기시간", value=st.session_state.f_due_time, placeholder="예: 오전 10시")
+
+# 2번째 줄 (4칸)
 r2c1, r2c2, r2c3, r2c4 = st.columns(4)
 with r2c1: f_sales_v = st.text_input("납품처", value=st.session_state.f_sales_v)
 with r2c2: f_site = st.text_input("현장명", value=st.session_state.f_site)
 with r2c3: f_manager = st.text_input("담당(수령인)", value=st.session_state.f_manager)
 with r2c4: f_phone = st.text_input("수령인전화", value=st.session_state.f_phone)
 
-# 3번째 줄
-r3c1, r3c2 = st.columns([1, 3])
-with r3c1: f_purch_v = st.text_input("기본 매입업체", value=st.session_state.f_purch_v, help="품목 추가 시 기본으로 입력될 업체입니다.")
-with r3c2: f_address = st.text_input("도착지주소 (상세 입력)", value=st.session_state.f_address)
+# 3번째 줄 (도착지주소 -> 기본매입업체)
+r3c1, r3c2 = st.columns([3, 1])
+with r3c1: f_address = st.text_input("도착지주소 (상세 입력)", value=st.session_state.f_address)
+with r3c2: f_purch_v = st.text_input("기본 매입업체", value=st.session_state.f_purch_v, help="품목 추가 시 기본으로 입력될 업체입니다.")
 
 # 3. 품목 상세 입력창
 st.subheader("2. 품목 상세")
@@ -156,13 +158,12 @@ if not spec_options: spec_options = ["미가공", "6mm가공", "8mm가공", "10m
 if not unit_options: unit_options = ["롤", "m2", "R/L", "M", "EA", "봉", "장", "박스", "kg", "포"]
 
 if 'order_items' not in st.session_state:
-    st.session_state.order_items = pd.DataFrame(columns=["매입업체", "품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가"])
+    st.session_state.order_items = pd.DataFrame(columns=["품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가", "매입업체"])
 
 # --- 입력 폼 (표 위쪽에 분리) ---
 st.markdown("#### 🔹 품목 추가 (여기서 선택/입력 후 '추가' 클릭)")
 with st.container(border=True):
-    c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11 = st.columns([1.2, 1.5, 1.5, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1.2, 1.2, 1])
-    with c0: in_vendor = st.text_input("매입업체", value=f_purch_v)
+    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 = st.columns([1.5, 1.5, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1.0, 1.0, 1.2, 1])
     with c1: 
         sel_item = st.selectbox("품목", [""] + item_options + ["[직접 입력]"])
         in_item = st.text_input("품목 직접입력", label_visibility="collapsed") if sel_item == "[직접 입력]" else sel_item
@@ -180,14 +181,15 @@ with st.container(border=True):
     with c8: in_note = st.text_input("비고")
     with c9: in_p_price = st.number_input("매입단가", min_value=0, step=100)
     with c10: in_s_price = st.number_input("매출단가", min_value=0, step=100)
-    with c11:
+    with c11: in_vendor = st.text_input("매입업체", value=f_purch_v)
+    with c12:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         if st.button("➕ 추가", use_container_width=True, type="primary"):
             if in_item.strip():
                 new_row = pd.DataFrame([{
-                    "매입업체": in_vendor, "품목": in_item, "규격": in_spec, "수량": in_qty, "단위": in_unit,
+                    "품목": in_item, "규격": in_spec, "수량": in_qty, "단위": in_unit,
                     "색상": in_color, "가공": in_proc, "KS": in_ks, "비고": in_note,
-                    "매입단가": in_p_price, "매출단가": in_s_price
+                    "매입단가": in_p_price, "매출단가": in_s_price, "매입업체": in_vendor
                 }])
                 st.session_state.order_items = pd.concat([st.session_state.order_items, new_row], ignore_index=True)
                 st.rerun()
@@ -209,14 +211,15 @@ edited_df = st.data_editor(
     num_rows="dynamic",
     use_container_width=True,
     hide_index=True,
+    column_order=["품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가", "매입업체"],
     column_config={
-        "매입업체": st.column_config.TextColumn("매입업체", width="medium"),
         "품목": st.column_config.SelectboxColumn("품목 (선택)", options=final_item_opts, width="medium"),
         "규격": st.column_config.SelectboxColumn("규격 (선택)", options=final_spec_opts, width="medium"),
         "단위": st.column_config.SelectboxColumn("단위 (선택)", options=final_unit_opts, width="small"),
         "수량": st.column_config.NumberColumn("수량", min_value=0.01, step=1, width="small"),
         "매입단가": st.column_config.NumberColumn("매입단가", step=100),
-        "매출단가": st.column_config.NumberColumn("매출단가", step=100)
+        "매출단가": st.column_config.NumberColumn("매출단가", step=100),
+        "매입업체": st.column_config.TextColumn("매입업체", width="medium")
     }
 )
 
