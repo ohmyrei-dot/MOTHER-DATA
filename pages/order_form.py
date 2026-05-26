@@ -68,39 +68,39 @@ if 'order_items' not in st.session_state:
     st.session_state.order_items = pd.DataFrame(columns=["품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가"])
 
 # --- 입력 폼 (표 위쪽에 분리) ---
-st.markdown("#### 🔹 품목 추가 (여기서 선택/입력 후 '표에 추가' 클릭)")
+st.markdown("#### 🔹 품목 추가 (여기서 선택/입력 후 '추가' 클릭)")
 with st.container(border=True):
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11 = st.columns([1.5, 1.5, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1.2, 1.2, 1])
     with c1: 
-        sel_item = st.selectbox("품목 (검색/선택)", [""] + item_options + ["[직접 입력]"])
-        in_item = st.text_input("품목 직접입력", placeholder="품목명 입력") if sel_item == "[직접 입력]" else sel_item
+        sel_item = st.selectbox("품목", [""] + item_options + ["[직접 입력]"])
+        in_item = st.text_input("품목 직접입력", label_visibility="collapsed") if sel_item == "[직접 입력]" else sel_item
     with c2:
-        sel_spec = st.selectbox("규격 (검색/선택)", [""] + spec_options + ["[직접 입력]"])
-        in_spec = st.text_input("규격 직접입력", placeholder="규격 입력") if sel_spec == "[직접 입력]" else sel_spec
+        sel_spec = st.selectbox("규격", [""] + spec_options + ["[직접 입력]"])
+        in_spec = st.text_input("규격 직접입력", label_visibility="collapsed") if sel_spec == "[직접 입력]" else sel_spec
     with c3:
         in_qty = st.number_input("수량", min_value=1, value=1)
     with c4:
-        sel_unit = st.selectbox("단위 (검색/선택)", unit_options + ["[직접 입력]"])
-        in_unit = st.text_input("단위 직접입력", placeholder="단위 입력") if sel_unit == "[직접 입력]" else sel_unit
-        
-    c5, c6, c7, c8, c9 = st.columns([1,1,1,1,1.5])
+        sel_unit = st.selectbox("단위", unit_options + ["[직접 입력]"])
+        in_unit = st.text_input("단위 직접입력", label_visibility="collapsed") if sel_unit == "[직접 입력]" else sel_unit
     with c5: in_color = st.text_input("색상")
     with c6: in_proc = st.text_input("가공")
     with c7: in_ks = st.text_input("KS")
     with c8: in_note = st.text_input("비고")
-    with c9:
+    with c9: in_p_price = st.number_input("매입단가", min_value=0, step=100)
+    with c10: in_s_price = st.number_input("매출단가", min_value=0, step=100)
+    with c11:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-        if st.button("⬇️ 표에 추가", use_container_width=True, type="primary"):
+        if st.button("➕ 추가", use_container_width=True, type="primary"):
             if in_item.strip():
                 new_row = pd.DataFrame([{
                     "품목": in_item, "규격": in_spec, "수량": in_qty, "단위": in_unit,
                     "색상": in_color, "가공": in_proc, "KS": in_ks, "비고": in_note,
-                    "매입단가": 0, "매출단가": 0
+                    "매입단가": in_p_price, "매출단가": in_s_price
                 }])
                 st.session_state.order_items = pd.concat([st.session_state.order_items, new_row], ignore_index=True)
                 st.rerun()
             else:
-                st.warning("품목을 선택하거나 입력해주세요.")
+                st.warning("품목을 선택해주세요.")
 
 # 현재 테이블에 있는 값도 옵션에 포함 (오류 방지: 모두 문자열로 강제 변환)
 current_items = [str(x) for x in st.session_state.order_items['품목'].unique() if str(x).strip()]
