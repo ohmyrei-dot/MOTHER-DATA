@@ -134,7 +134,7 @@ with r5c4: f_receiver = st.text_input("인수자")
 SUPPLIER_INFO = {
     "company": "석미세이프",
     "biznum": "524-38-00469",
-    "address": "경기도 남양주시 수동면 남가로<br>1771-1"
+    "address": "경기도 남양주시 수동면 남가로 1771-1"
 }
 
 st.divider()
@@ -147,7 +147,12 @@ if 'is_saved' not in st.session_state:
     st.session_state.is_saved = False
 
 if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_container_width=True):
-    valid_df = edited_df[edited_df['품목'].astype(str).str.strip() != ""].copy()
+    # None 값과 빈 문자열 완벽 차단
+    valid_df = edited_df[
+        edited_df['품목'].notna() & 
+        (edited_df['품목'].astype(str).str.strip() != "") & 
+        (edited_df['품목'].astype(str).str.strip().str.lower() != "none")
+    ].copy()
     
     if valid_df.empty:
         st.error("⚠️ 품목을 하나 이상 입력해주세요.")
@@ -199,7 +204,12 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
 # 6. PDF 출력용 템플릿 준비
 TOTAL_ROWS = 14  # 페이지 넘침 방지하면서 14줄로 확장
 tbody_html = ""
-valid_rows = edited_df[edited_df['품목'].astype(str).str.strip() != ""]
+# PDF 출력 시에도 None 값 완벽 차단
+valid_rows = edited_df[
+    edited_df['품목'].notna() & 
+    (edited_df['품목'].astype(str).str.strip() != "") & 
+    (edited_df['품목'].astype(str).str.strip().str.lower() != "none")
+]
 for i, row in valid_rows.iterrows():
     tbody_html += f"""
     <tr>
@@ -360,7 +370,7 @@ def create_po_block(receiver_name):
             <div style="width: 49%;">
                 <table style="width: 100%; height: 100%; border-collapse: collapse; text-align: left; line-height: 1.5; font-size: 11px;">
                     <tr><td style="width: 40px; font-weight: bold;">발 신</td><td style="width: 10px;">:</td><td style="font-weight: bold;">석미세이프</td></tr>
-                    <tr><td style="font-weight: bold; vertical-align: top;">주 소</td><td style="vertical-align: top;">:</td><td style="word-break: keep-all;">경기도 남양주시 수동면 남가로<br>1771-1</td></tr>
+                    <tr><td style="font-weight: bold; vertical-align: top;">주 소</td><td style="vertical-align: top;">:</td><td style="word-break: keep-all;">경기도 남양주시 수동면 남가로 1771-1</td></tr>
                     <tr><td style="font-weight: bold;">전 화</td><td>:</td><td>031-559-4854</td></tr>
                     <tr><td style="font-weight: bold;">팩 스</td><td>:</td><td>02-6008-4854</td></tr>
                     <tr><td style="font-weight: bold;">E-mail</td><td>:</td><td>sm_safe@naver.com</td></tr>
