@@ -84,14 +84,14 @@ with st.expander("➕ 수기 입력 (드롭다운 목록에 없는 항목 강제
                 st.session_state.order_items = pd.concat([st.session_state.order_items, pd.DataFrame([new_row])], ignore_index=True)
                 st.rerun()
 
-# 현재 테이블에 있는 값도 옵션에 포함 (오류 방지)
-current_items = [x for x in st.session_state.order_items['품목'].unique() if str(x).strip()]
-current_specs = [x for x in st.session_state.order_items['규격'].unique() if str(x).strip()]
-current_units = [x for x in st.session_state.order_items['단위'].unique() if str(x).strip()]
+# 현재 테이블에 있는 값도 옵션에 포함 (오류 방지: 모두 문자열로 강제 변환)
+current_items = [str(x) for x in st.session_state.order_items['품목'].unique() if str(x).strip()]
+current_specs = [str(x) for x in st.session_state.order_items['규격'].unique() if str(x).strip()]
+current_units = [str(x) for x in st.session_state.order_items['단위'].unique() if str(x).strip()]
 
-final_item_opts = sorted(list(set(item_options + current_items + [""])))
-final_spec_opts = sorted(list(set(spec_options + current_specs + [""])))
-final_unit_opts = sorted(list(set(unit_options + current_units + [""])))
+final_item_opts = sorted(list(set(item_options + current_items + [""])), key=str)
+final_spec_opts = sorted(list(set(spec_options + current_specs + [""])), key=str)
+final_unit_opts = sorted(list(set(unit_options + current_units + [""])), key=str)
 
 # --- 메인 데이터 표 (드롭다운 적용) ---
 edited_df = st.data_editor(
