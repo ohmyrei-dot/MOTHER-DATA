@@ -9,7 +9,7 @@ import base64
 
 st.set_page_config(page_title="발주서 및 거래명세서 작성", page_icon="📝", layout="wide")
 
-# 1. 구글 시트 연결
+# 1. 구글 시트 연결 및 데이터 불러오기
 @st.cache_resource
 def init_connection():
     creds_info = json.loads(st.secrets["google_credentials"])
@@ -17,40 +17,133 @@ def init_connection():
     creds = Credentials.from_service_account_info(creds_info, scopes=scope)
     return gspread.authorize(creds)
 
-st.title("📝 발주서 및 거래명세서 작성")
+@st.cache_data(ttl=60)
+def fetch_mother_data():
+    try:
+        client = init_connection()
+        sheet = client.open("석미_마더데이터").sheet1
+        all_data = sheet.get_all_values()
+        if not all_data: return pd.DataFrame()
+        return pd.DataFrame(all_data[1:], columns=all_data[0])
+    except:
+        return pd.DataFrame()
 
-# 2. 기본 정보 입력창
-st.subheader("1. 기본 정보")
+st.title("📝 발주서 및 거래명세서 작성")
 
 today = datetime.date.today()
 month_list = [(pd.to_datetime(today) + pd.DateOffset(months=i)).strftime("%Y-%m") for i in range(-12, 61)]
 
+# --- 세션 초기화 (과거 내역 불러오기용) ---
+keys = [
+    ('f_order_no', ''), ('f_close_month', month_list[12]), ('f_date', today), ('f_due_date', today),
+    ('f_due_time', ''), ('f_sales_v', ''), ('f_site', ''), ('f_manager', ''),
+    ('f_phone', ''), ('f_purch_v', ''), ('f_address', ''),
+    ('f_ship_cost', ''), ('f_ship_car', ''), ('f_ship_driver', ''), ('f_ship_phone', ''),
+    ('f_depot', ''), ('f_sender', ''), ('f_sender_phone', ''), ('f_receiver', ''), ('f_po_note', '')
+]
+for k, v in keys:
+    if k not in st.session_state: st.session_state[k] = v
+
+df_history = fetch_mother_data()
+
+# --- 0. 과거 내역 불러오기 ---
+st.subheader("0. 과거 발주내역 불러오기")
+if not df_history.empty and '발주일' in df_history.columns:
+    df_temp = df_history.sort_values(by='발주일', ascending=False).copy()
+    # 고유 키 생성 (주문번호가 있으면 우선 사용)
+    if '주문번호' in df_temp.columns:
+        df_temp['OrderKey'] = df_temp['주문번호'].astype(str) + " | " + df_temp['납품처'].astype(str) + " | " + df_temp['현장명'].astype(str)
+    else:
+        df_temp['OrderKey'] = df_temp['발주일'].astype(str) + " | " + df_temp['납품처'].astype(str) + " | " + df_temp['현장명'].astype(str)
+    
+    unique_orders = df_temp['OrderKey'].drop_duplicates().tolist()
+    
+    with st.expander("🔄 기존 내역 검색 및 양식 채우기"):
+        c_sel, c_btn = st.columns([4, 1])
+        with c_sel:
+            sel_order = st.selectbox("불러올 내역 (주문번호/발주일 | 납품처 | 현장명)", ["선택안함"] + unique_orders, label_visibility="collapsed")
+        with c_btn:
+            if st.button("📥 불러오기", use_container_width=True) and sel_order != "선택안함":
+                target_df = df_temp[df_temp['OrderKey'] == sel_order]
+                if not target_df.empty:
+                    first_row = target_df.iloc[0]
+                    st.session_state.f_close_month = first_row.get('마감월', st.session_state.f_close_month)
+                    try: st.session_state.f_date = pd.to_datetime(first_row.get('발주일')).date()
+                    except: pass
+                    try: st.session_state.f_due_date = pd.to_datetime(first_row.get('납기일')).date()
+                    except: pass
+                    for k, col in [('f_due_time', '납기시간'), ('f_sales_v', '납품처'), ('f_site', '현장명'), 
+                                 ('f_manager', '담당(수령인)'), ('f_phone', '수령인전화'), ('f_purch_v', '매입업체'), 
+                                 ('f_address', '도착지주소'), ('f_ship_cost', '운임'), ('f_ship_car', '차량번호'), 
+                                 ('f_ship_driver', '기사명'), ('f_ship_phone', '기사연락처'), ('f_depot', '출고지'), 
+                                 ('f_sender', '출고자'), ('f_sender_phone', '출고자전화'), ('f_receiver', '인수자'), ('f_po_note', '특이사항')]:
+                        st.session_state[k] = str(first_row.get(col, ''))
+                        
+                    items_cols = [c for c in ['매입업체', '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', '매입단가', '매출단가'] if c in target_df.columns]
+                    new_items = target_df[items_cols].copy()
+                    if '매입업체' not in new_items.columns: new_items['매입업체'] = st.session_state.f_purch_v
+                    
+                    new_items['수량'] = pd.to_numeric(new_items.get('수량', 1), errors='coerce').fillna(1)
+                    new_items['매입단가'] = pd.to_numeric(new_items.get('매입단가', 0), errors='coerce').fillna(0)
+                    new_items['매출단가'] = pd.to_numeric(new_items.get('매출단가', 0), errors='coerce').fillna(0)
+                    
+                    # 빈 컬럼 채우기
+                    for c in ["매입업체", "품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가"]:
+                        if c not in new_items.columns: new_items[c] = ""
+                        
+                    st.session_state.order_items = new_items[["매입업체", "품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가"]]
+                    st.rerun()
+
+# 2. 기본 정보 입력창
+st.subheader("1. 기본 정보")
+
+# --- 주문번호 자동 채번 로직 ---
+today_str = today.strftime("%y%m%d")
+seq = 1
+if not df_history.empty and '주문번호' in df_history.columns:
+    today_orders = df_history[df_history['주문번호'].astype(str).str.startswith(today_str)]
+    if not today_orders.empty:
+        try:
+            seqs = today_orders['주문번호'].str.split('-').str[-1].astype(int)
+            seq = seqs.max() + 1
+        except: pass
+default_order_no = f"{today_str}-{seq:02d}"
+
 # 1번째 줄
-r1c1, r1c2, r1c3, r1c4 = st.columns(4)
-with r1c1: f_close_month = st.selectbox("마감월 (저장용)", month_list, index=12)
-with r1c2: f_date = st.date_input("발주일", today)
-with r1c3: f_due_date = st.date_input("납기일", today)
-with r1c4: f_due_time = st.text_input("납기시간", placeholder="예: 오전 10시")
+r1c1, r1c2, r1c3, r1c4, r1c5 = st.columns(5)
+with r1c1: f_order_no = st.text_input("주문번호", value=st.session_state.f_order_no if st.session_state.f_order_no else default_order_no)
+with r1c2: f_close_month = st.selectbox("마감월 (저장용)", month_list, index=month_list.index(st.session_state.f_close_month) if st.session_state.f_close_month in month_list else 12)
+with r1c3: f_date = st.date_input("발주일", st.session_state.f_date)
+with r1c4: f_due_date = st.date_input("납기일", st.session_state.f_due_date)
+with r1c5: f_due_time = st.text_input("납기시간", value=st.session_state.f_due_time, placeholder="예: 오전 10시")
 
 # 2번째 줄
 r2c1, r2c2, r2c3, r2c4 = st.columns(4)
-with r2c1: f_sales_v = st.text_input("납품처")
-with r2c2: f_site = st.text_input("현장명")
-with r2c3: f_manager = st.text_input("담당(수령인)")
-with r2c4: f_phone = st.text_input("수령인전화")
+with r2c1: f_sales_v = st.text_input("납품처", value=st.session_state.f_sales_v)
+with r2c2: f_site = st.text_input("현장명", value=st.session_state.f_site)
+with r2c3: f_manager = st.text_input("담당(수령인)", value=st.session_state.f_manager)
+with r2c4: f_phone = st.text_input("수령인전화", value=st.session_state.f_phone)
 
 # 3번째 줄
 r3c1, r3c2 = st.columns([1, 3])
-with r3c1: f_purch_v = st.text_input("매입업체")
-with r3c2: f_address = st.text_input("도착지주소 (상세 입력)")
+with r3c1: f_purch_v = st.text_input("기본 매입업체", value=st.session_state.f_purch_v, help="품목 추가 시 기본으로 입력될 업체입니다.")
+with r3c2: f_address = st.text_input("도착지주소 (상세 입력)", value=st.session_state.f_address)
 
 # 3. 품목 상세 입력창
 st.subheader("2. 품목 상세")
 
-# --- 드롭다운(검색)용 데이터 불러오기 ---
+# --- 드롭다운(검색)용 데이터 불러오기 (마더데이터 > price_list.xlsx > 기본값 순) ---
+item_options, spec_options, unit_options = [], [], []
+
+if not df_history.empty and '품목' in df_history.columns:
+    item_options = sorted([str(x) for x in df_history['품목'].dropna().unique() if str(x).strip()])
+    if '규격' in df_history.columns:
+        spec_options = sorted([str(x) for x in df_history['규격'].dropna().unique() if str(x).strip()])
+    if '단위' in df_history.columns:
+        unit_options = sorted([str(x) for x in df_history['단위'].dropna().unique() if str(x).strip()])
+
 file_path = 'price_list.xlsx'
-item_options, spec_options = [], []
-if os.path.exists(file_path):
+if not item_options and os.path.exists(file_path):
     try:
         temp_df = pd.read_excel(file_path, sheet_name='Sales_매출단가')
         item_options = [str(x) for x in temp_df['품목'].dropna().unique() if str(x).strip()]
@@ -58,19 +151,18 @@ if os.path.exists(file_path):
             spec_options = [str(x) for x in temp_df['규격'].dropna().unique() if str(x).strip()]
     except: pass
 
-if not item_options:
-    item_options = ["안전망1cm", "안전망2cm", "멀티망", "럿셀망", "PP로프", "와이어로프", "와이어클립", "케이블타이"]
-if not spec_options:
-    spec_options = ["미가공", "6mm가공", "8mm가공", "10mm가공", "1200D", "1.2", "1.5", "1.8"]
-unit_options = ["롤", "m2", "R/L", "M", "EA", "봉", "장", "박스", "kg", "포"]
+if not item_options: item_options = ["안전망1cm", "안전망2cm", "멀티망", "럿셀망", "PP로프", "와이어로프", "와이어클립", "케이블타이"]
+if not spec_options: spec_options = ["미가공", "6mm가공", "8mm가공", "10mm가공", "1200D", "1.2", "1.5", "1.8"]
+if not unit_options: unit_options = ["롤", "m2", "R/L", "M", "EA", "봉", "장", "박스", "kg", "포"]
 
 if 'order_items' not in st.session_state:
-    st.session_state.order_items = pd.DataFrame(columns=["품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가"])
+    st.session_state.order_items = pd.DataFrame(columns=["매입업체", "품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가"])
 
 # --- 입력 폼 (표 위쪽에 분리) ---
 st.markdown("#### 🔹 품목 추가 (여기서 선택/입력 후 '추가' 클릭)")
 with st.container(border=True):
-    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11 = st.columns([1.5, 1.5, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1.2, 1.2, 1])
+    c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11 = st.columns([1.2, 1.5, 1.5, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1.2, 1.2, 1])
+    with c0: in_vendor = st.text_input("매입업체", value=f_purch_v)
     with c1: 
         sel_item = st.selectbox("품목", [""] + item_options + ["[직접 입력]"])
         in_item = st.text_input("품목 직접입력", label_visibility="collapsed") if sel_item == "[직접 입력]" else sel_item
@@ -93,7 +185,7 @@ with st.container(border=True):
         if st.button("➕ 추가", use_container_width=True, type="primary"):
             if in_item.strip():
                 new_row = pd.DataFrame([{
-                    "품목": in_item, "규격": in_spec, "수량": in_qty, "단위": in_unit,
+                    "매입업체": in_vendor, "품목": in_item, "규격": in_spec, "수량": in_qty, "단위": in_unit,
                     "색상": in_color, "가공": in_proc, "KS": in_ks, "비고": in_note,
                     "매입단가": in_p_price, "매출단가": in_s_price
                 }])
@@ -118,10 +210,13 @@ edited_df = st.data_editor(
     use_container_width=True,
     hide_index=True,
     column_config={
+        "매입업체": st.column_config.TextColumn("매입업체", width="medium"),
         "품목": st.column_config.SelectboxColumn("품목 (선택)", options=final_item_opts, width="medium"),
         "규격": st.column_config.SelectboxColumn("규격 (선택)", options=final_spec_opts, width="medium"),
         "단위": st.column_config.SelectboxColumn("단위 (선택)", options=final_unit_opts, width="small"),
-        "수량": st.column_config.NumberColumn("수량", min_value=0.01, step=1, width="small")
+        "수량": st.column_config.NumberColumn("수량", min_value=0.01, step=1, width="small"),
+        "매입단가": st.column_config.NumberColumn("매입단가", step=100),
+        "매출단가": st.column_config.NumberColumn("매출단가", step=100)
     }
 )
 
@@ -130,23 +225,23 @@ st.session_state.order_items = edited_df.copy()
 
 st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
 st.markdown("**[발주서] 특이사항**")
-f_po_note = st.text_area("특이사항", placeholder="발주서 하단에 출력될 특이사항을 기재하세요.", height=80, label_visibility="collapsed")
+f_po_note = st.text_area("특이사항", value=st.session_state.f_po_note, placeholder="발주서 하단에 출력될 특이사항을 기재하세요.", height=80, label_visibility="collapsed")
 
 st.divider()
 
 # 4. 하단 출력용 추가 정보 (운송정보)
 st.subheader("3. 운송정보")
 r4c1, r4c2, r4c3, r4c4 = st.columns(4)
-with r4c1: f_ship_cost = st.text_input("운임")
-with r4c2: f_ship_car = st.text_input("차량번호")
-with r4c3: f_ship_driver = st.text_input("기사명")
-with r4c4: f_ship_phone = st.text_input("기사연락처")
+with r4c1: f_ship_cost = st.text_input("운임", value=st.session_state.f_ship_cost)
+with r4c2: f_ship_car = st.text_input("차량번호", value=st.session_state.f_ship_car)
+with r4c3: f_ship_driver = st.text_input("기사명", value=st.session_state.f_ship_driver)
+with r4c4: f_ship_phone = st.text_input("기사연락처", value=st.session_state.f_ship_phone)
 
 r5c1, r5c2, r5c3, r5c4 = st.columns(4)
-with r5c1: f_depot = st.text_input("출고지")
-with r5c2: f_sender = st.text_input("출고자")
-with r5c3: f_sender_phone = st.text_input("출고자 전화")
-with r5c4: f_receiver = st.text_input("인수자")
+with r5c1: f_depot = st.text_input("출고지", value=st.session_state.f_depot)
+with r5c2: f_sender = st.text_input("출고자", value=st.session_state.f_sender)
+with r5c3: f_sender_phone = st.text_input("출고자 전화", value=st.session_state.f_sender_phone)
+with r5c4: f_receiver = st.text_input("인수자", value=st.session_state.f_receiver)
 
 # 공급자 정보 (고정)
 SUPPLIER_INFO = {
@@ -182,7 +277,7 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                 sheet = client.open("석미_마더데이터").sheet1 
                 
                 expected_headers = [
-                    '마감월', '발주일', '납기일', '납기시간', '납품처', '현장명', '담당(수령인)', '수령인전화',
+                    '주문번호', '마감월', '발주일', '납기일', '납기시간', '납품처', '현장명', '담당(수령인)', '수령인전화',
                     '도착지주소', '매입업체',
                     '품목', '규격', '수량', '단위', '색상', '가공', 'KS', '비고', 
                     '매입단가', '매출단가',
@@ -198,12 +293,17 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                 
                 rows_to_append = []
                 for _, row in valid_df.iterrows():
+                    # 기본 매입업체 백업값 설정
+                    row_vendor = row.get('매입업체')
+                    if pd.isna(row_vendor) or str(row_vendor).strip() == "":
+                        row_vendor = f_purch_v
+                        
                     rows_to_append.append([
-                        f_close_month,
+                        f_order_no, f_close_month,
                         f_date.strftime("%Y-%m-%d"), 
                         f_due_date.strftime("%Y-%m-%d"),
                         f_due_time, f_sales_v, f_site, f_manager, f_phone, 
-                        f_address, f_purch_v,
+                        f_address, row_vendor,
                         row['품목'], row['규격'], row['수량'], row['단위'], 
                         row['색상'], row['가공'], row['KS'], row['비고'], 
                         row['매입단가'], row['매출단가'],
@@ -212,6 +312,7 @@ if st.button("💾 장부 저장 및 PDF 다운로드", type="primary", use_cont
                     ])
                     
                 sheet.append_rows(rows_to_append, value_input_option='USER_ENTERED')
+                fetch_mother_data.clear() # 캐시 초기화하여 새로 저장된 데이터 즉시 반영 (주문번호 갱신용)
                 st.success("✅ 구글 시트 저장 완료! PDF 다운로드를 시작합니다.")
                 st.session_state.is_saved = True
                 
