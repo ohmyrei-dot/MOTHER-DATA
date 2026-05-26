@@ -46,17 +46,69 @@ with r3c2: f_address = st.text_input("도착지주소 (상세 입력)")
 
 # 3. 품목 상세 입력창
 st.subheader("2. 품목 상세")
+
+# --- 드롭다운(검색)용 데이터 불러오기 ---
+file_path = 'price_list.xlsx'
+item_options, spec_options = [], []
+if os.path.exists(file_path):
+    try:
+        temp_df = pd.read_excel(file_path, sheet_name='Sales_매출단가')
+        item_options = [str(x) for x in temp_df['품목'].dropna().unique() if str(x).strip()]
+        if '규격' in temp_df.columns:
+            spec_options = [str(x) for x in temp_df['규격'].dropna().unique() if str(x).strip()]
+    except: pass
+
+if not item_options:
+    item_options = ["안전망1cm", "안전망2cm", "멀티망", "럿셀망", "PP로프", "와이어로프", "와이어클립", "케이블타이"]
+if not spec_options:
+    spec_options = ["미가공", "6mm가공", "8mm가공", "10mm가공", "1200D", "1.2", "1.5", "1.8"]
+unit_options = ["롤", "m2", "R/L", "M", "EA", "봉", "장", "박스", "kg", "포"]
+
 if 'order_items' not in st.session_state:
     st.session_state.order_items = pd.DataFrame([
         {"품목": "", "규격": "", "수량": 1, "단위": "롤", "색상": "", "가공": "", "KS": "", "비고": "", "매입단가": 0, "매출단가": 0}
     ])
 
+# --- 수기 입력창 (표 위쪽에 배치) ---
+with st.expander("➕ 수기 입력 (드롭다운 목록에 없는 항목 강제 추가)"):
+    c_m1, c_m2, c_m3, c_m4, c_m5 = st.columns(5)
+    with c_m1: m_item = st.text_input("품목 (직접입력)", key="m_item")
+    with c_m2: m_spec = st.text_input("규격 (직접입력)", key="m_spec")
+    with c_m3: m_qty = st.number_input("수량", min_value=1, value=1, key="m_qty")
+    with c_m4: m_unit = st.text_input("단위", value="EA", key="m_unit")
+    with c_m5:
+        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+        if st.button("표에 추가", use_container_width=True):
+            if m_item.strip():
+                new_row = {"품목": m_item, "규격": m_spec, "수량": m_qty, "단위": m_unit, "색상": "", "가공": "", "KS": "", "비고": "", "매입단가": 0, "매출단가": 0}
+                st.session_state.order_items = pd.concat([st.session_state.order_items, pd.DataFrame([new_row])], ignore_index=True)
+                st.rerun()
+
+# 현재 테이블에 있는 값도 옵션에 포함 (오류 방지)
+current_items = [x for x in st.session_state.order_items['품목'].unique() if str(x).strip()]
+current_specs = [x for x in st.session_state.order_items['규격'].unique() if str(x).strip()]
+current_units = [x for x in st.session_state.order_items['단위'].unique() if str(x).strip()]
+
+final_item_opts = sorted(list(set(item_options + current_items + [""])))
+final_spec_opts = sorted(list(set(spec_options + current_specs + [""])))
+final_unit_opts = sorted(list(set(unit_options + current_units + [""])))
+
+# --- 메인 데이터 표 (드롭다운 적용) ---
 edited_df = st.data_editor(
     st.session_state.order_items,
     num_rows="dynamic",
     use_container_width=True,
-    hide_index=True
+    hide_index=True,
+    column_config={
+        "품목": st.column_config.SelectboxColumn("품목 (선택)", options=final_item_opts, width="medium"),
+        "규격": st.column_config.SelectboxColumn("규격 (선택)", options=final_spec_opts, width="medium"),
+        "단위": st.column_config.SelectboxColumn("단위 (선택)", options=final_unit_opts, width="small"),
+        "수량": st.column_config.NumberColumn("수량", min_value=0.01, step=1, width="small")
+    }
 )
+
+# 수정된 데이터를 세션에 동기화
+st.session_state.order_items = edited_df.copy()
 
 st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
 st.markdown("**[발주서] 특이사항**")
