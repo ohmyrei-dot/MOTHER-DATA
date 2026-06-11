@@ -6,6 +6,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import os
 import base64
+import re
 
 st.set_page_config(page_title="발주서 및 거래명세서 작성", page_icon="📝", layout="wide")
 
@@ -27,6 +28,25 @@ def fetch_mother_data():
         return pd.DataFrame(all_data[1:], columns=all_data[0])
     except:
         return pd.DataFrame()
+
+@st.cache_data(ttl=60)
+def fetch_price_data():
+    df_p, df_s = pd.DataFrame(), pd.DataFrame()
+    try:
+        client = init_connection()
+        doc = client.open("석미_마더데이터")
+        try: 
+            ws_p = doc.worksheet("매입정보")
+            d_p = ws_p.get_all_values()
+            if len(d_p) > 1: df_p = pd.DataFrame(d_p[1:], columns=d_p[0])
+        except: pass
+        try: 
+            ws_s = doc.worksheet("매출정보")
+            d_s = ws_s.get_all_values()
+            if len(d_s) > 1: df_s = pd.DataFrame(d_s[1:], columns=d_s[0])
+        except: pass
+    except: pass
+    return df_p, df_s
 
 st.title("📝 발주서 및 거래명세서 작성")
 
@@ -134,78 +154,88 @@ with r3c2: f_purch_v = st.text_input("기본 매입업체", value=st.session_sta
 # 3. 품목 상세 입력창
 st.subheader("2. 품목 상세")
 
-# --- 드롭다운(검색)용 데이터 불러오기 (마더데이터 > price_list.xlsx > 기본값 순) ---
-item_options, spec_options, unit_options = [], [], []
+df_purch, df_sales = fetch_price_data()
 
-if not df_history.empty and '품목' in df_history.columns:
-    item_options = sorted([str(x) for x in df_history['품목'].dropna().unique() if str(x).strip()])
-    if '규격' in df_history.columns:
-        spec_options = sorted([str(x) for x in df_history['규격'].dropna().unique() if str(x).strip()])
-    if '단위' in df_history.columns:
-        unit_options = sorted([str(x) for x in df_history['단위'].dropna().unique() if str(x).strip()])
+# 옵션 추출
+item_options, spec_options = [], []
+if not df_purch.empty and '품목' in df_purch.columns:
+    item_options.extend([str(x) for x in df_purch['품목'].dropna().unique() if str(x).strip()])
+if not df_sales.empty and '품목' in df_sales.columns:
+    item_options.extend([str(x) for x in df_sales['품목'].dropna().unique() if str(x).strip()])
+item_options = sorted(list(set(item_options)))
 
-file_path = 'price_list.xlsx'
-if not item_options and os.path.exists(file_path):
-    try:
-        temp_df = pd.read_excel(file_path, sheet_name='Sales_매출단가')
-        item_options = [str(x) for x in temp_df['품목'].dropna().unique() if str(x).strip()]
-        if '규격' in temp_df.columns:
-            spec_options = [str(x) for x in temp_df['규격'].dropna().unique() if str(x).strip()]
-    except: pass
+if not df_purch.empty and '규격' in df_purch.columns:
+    spec_options.extend([str(x) for x in df_purch['규격'].dropna().unique() if str(x).strip()])
+if not df_sales.empty and '규격' in df_sales.columns:
+    spec_options.extend([str(x) for x in df_sales['규격'].dropna().unique() if str(x).strip()])
+spec_options = sorted(list(set(spec_options)))
 
 if not item_options: item_options = ["안전망1cm", "안전망2cm", "멀티망", "럿셀망", "PP로프", "와이어로프", "와이어클립", "케이블타이"]
-if not spec_options: spec_options = ["미가공", "6mm가공", "8mm가공", "10mm가공", "1200D", "1.2", "1.5", "1.8"]
-if not unit_options: unit_options = ["롤", "m2", "R/L", "M", "EA", "봉", "장", "박스", "kg", "포"]
+if not spec_options: spec_options = ["미가공", "6mm가공", "8mm가공", "10mm가공", "1200D", "1m*50", "1.5m*50", "2m*50", "6mm*200", "600PCS"]
+unit_options = ["롤", "m2", "R/L", "M", "EA", "봉", "장", "박스", "kg", "포"]
 
-if 'order_items' not in st.session_state:
-    st.session_state.order_items = pd.DataFrame(columns=["품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가", "매입업체"])
+if 'order_items' not in st.session_state or st.session_state.order_items.empty:
+    empty_rows = [{"품목": "", "규격": "", "수량": 1, "단위": "롤", "색상": "", "가공": "", "KS": "", "비고": "", "매입단가": 0, "매출단가": 0, "매입업체": st.session_state.get('f_purch_v', '')} for _ in range(5)]
+    st.session_state.order_items = pd.DataFrame(empty_rows)
 
-# --- 입력 폼 (표 위쪽에 분리) ---
-st.markdown("#### 🔹 품목 추가 (여기서 선택/입력 후 '추가' 클릭)")
-with st.container(border=True):
-    c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12 = st.columns([1.5, 1.5, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1.0, 1.0, 1.2, 1])
-    with c1: 
-        sel_item = st.selectbox("품목", [""] + item_options + ["[직접 입력]"])
-        in_item = st.text_input("품목 직접입력", label_visibility="collapsed") if sel_item == "[직접 입력]" else sel_item
-    with c2:
-        sel_spec = st.selectbox("규격", [""] + spec_options + ["[직접 입력]"])
-        in_spec = st.text_input("규격 직접입력", label_visibility="collapsed") if sel_spec == "[직접 입력]" else sel_spec
-    with c3:
-        in_qty = st.number_input("수량", min_value=1, value=1)
-    with c4:
-        sel_unit = st.selectbox("단위", unit_options + ["[직접 입력]"])
-        in_unit = st.text_input("단위 직접입력", label_visibility="collapsed") if sel_unit == "[직접 입력]" else sel_unit
-    with c5: in_color = st.text_input("색상")
-    with c6: in_proc = st.text_input("가공")
-    with c7: in_ks = st.text_input("KS")
-    with c8: in_note = st.text_input("비고")
-    with c9: in_p_price = st.number_input("매입단가", min_value=0, step=100)
-    with c10: in_s_price = st.number_input("매출단가", min_value=0, step=100)
-    with c11: in_vendor = st.text_input("매입업체", value=f_purch_v)
-    with c12:
-        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-        if st.button("➕ 추가", use_container_width=True, type="primary"):
-            if in_item.strip():
-                new_row = pd.DataFrame([{
-                    "품목": in_item, "규격": in_spec, "수량": in_qty, "단위": in_unit,
-                    "색상": in_color, "가공": in_proc, "KS": in_ks, "비고": in_note,
-                    "매입단가": in_p_price, "매출단가": in_s_price, "매입업체": in_vendor
-                }])
-                st.session_state.order_items = pd.concat([st.session_state.order_items, new_row], ignore_index=True)
-                st.rerun()
-            else:
-                st.warning("품목을 선택해주세요.")
+def calculate_price(item, spec, color, proc, vendor, is_sales=False):
+    df_t = df_sales if is_sales else df_purch
+    if df_t.empty or vendor not in df_t.columns: return 0
+    
+    match = df_t[df_t['품목'] == item]
+    if '규격' in df_t.columns and spec:
+        match = match[match['규격'] == spec]
+        
+    if match.empty: return 0
+    
+    try: unit_price = float(str(match.iloc[0][vendor]).replace(',', ''))
+    except: return 0
+    
+    # 특수색상 + 미가공 100원 추가 (안전망)
+    if '안전망' in str(item):
+        if str(proc) == '미가공' and str(color) not in ['', '녹색', '청색', '청+노', '녹', '청', '청노']:
+            unit_price += 100
+            
+    # 배수(면적/길이/수량) 계산
+    multiplier = 1.0
+    if '안전망' in str(item) or '멀티망' in str(item):
+        nums = [float(x) for x in re.findall(r'(\d+(?:\.\d+)?)', str(spec))]
+        if len(nums) >= 2: multiplier = nums[0] * nums[1]
+        elif len(nums) == 1: multiplier = nums[0]
+    elif '와이어로프' in str(item):
+        nums = [float(x) for x in re.findall(r'(\d+(?:\.\d+)?)', str(spec))]
+        if len(nums) >= 2: multiplier = nums[-1]
+        elif len(nums) == 1: multiplier = nums[0]
+    elif '와이어클립' in str(item):
+        nums = [float(x) for x in re.findall(r'(\d+(?:\.\d+)?)', str(spec))]
+        if nums: multiplier = nums[0]
+        
+    return int(unit_price * multiplier)
 
-# 현재 테이블에 있는 값도 옵션에 포함 (오류 방지: 모두 문자열로 강제 변환)
-current_items = [str(x) for x in st.session_state.order_items['품목'].unique() if str(x).strip()]
-current_specs = [str(x) for x in st.session_state.order_items['규격'].unique() if str(x).strip()]
-current_units = [str(x) for x in st.session_state.order_items['단위'].unique() if str(x).strip()]
+c_btn1, c_btn2 = st.columns([1, 5])
+with c_btn1:
+    if st.button("✨ 단가 자동 계산", type="primary", use_container_width=True):
+        df_temp = st.session_state.order_items.copy()
+        for i in df_temp.index:
+            item = df_temp.at[i, '품목']
+            spec = df_temp.at[i, '규격']
+            color = df_temp.at[i, '색상']
+            proc = df_temp.at[i, '가공']
+            p_vendor = df_temp.at[i, '매입업체']
+            if not p_vendor: p_vendor = f_purch_v
+            
+            if item:
+                p_price = calculate_price(item, spec, color, proc, p_vendor, is_sales=False)
+                if p_price > 0: df_temp.at[i, '매입단가'] = p_price
+                
+                s_price = calculate_price(item, spec, color, proc, f_sales_v, is_sales=True)
+                if s_price > 0: df_temp.at[i, '매출단가'] = s_price
+                
+        st.session_state.order_items = df_temp
+        st.rerun()
 
-final_item_opts = sorted(list(set(item_options + current_items + [""])), key=str)
-final_spec_opts = sorted(list(set(spec_options + current_specs + [""])), key=str)
-final_unit_opts = sorted(list(set(unit_options + current_units + [""])), key=str)
+st.caption("표에서 품목/규격 등을 선택하고 위의 **[✨ 단가 자동 계산]** 버튼을 누르면 단가가 일괄 적용됩니다. (직접 입력/수정 가능)")
 
-# --- 메인 데이터 표 (드롭다운 적용) ---
 edited_df = st.data_editor(
     st.session_state.order_items,
     num_rows="dynamic",
@@ -213,9 +243,12 @@ edited_df = st.data_editor(
     hide_index=True,
     column_order=["품목", "규격", "수량", "단위", "색상", "가공", "KS", "비고", "매입단가", "매출단가", "매입업체"],
     column_config={
-        "품목": st.column_config.SelectboxColumn("품목 (선택)", options=final_item_opts, width="medium"),
-        "규격": st.column_config.SelectboxColumn("규격 (선택)", options=final_spec_opts, width="medium"),
-        "단위": st.column_config.SelectboxColumn("단위 (선택)", options=final_unit_opts, width="small"),
+        "품목": st.column_config.SelectboxColumn("품목", options=[""] + item_options, width="medium"),
+        "규격": st.column_config.SelectboxColumn("규격", options=[""] + spec_options, width="medium"),
+        "단위": st.column_config.SelectboxColumn("단위", options=unit_options, width="small"),
+        "색상": st.column_config.TextColumn("색상", width="small"),
+        "가공": st.column_config.TextColumn("가공", width="small"),
+        "KS": st.column_config.TextColumn("KS", width="small"),
         "수량": st.column_config.NumberColumn("수량", min_value=0.01, step=1, width="small"),
         "매입단가": st.column_config.NumberColumn("매입단가", step=100),
         "매출단가": st.column_config.NumberColumn("매출단가", step=100),
@@ -223,7 +256,6 @@ edited_df = st.data_editor(
     }
 )
 
-# 수정된 데이터를 세션에 동기화
 st.session_state.order_items = edited_df.copy()
 
 st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
